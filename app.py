@@ -3,24 +3,38 @@ from supabase import create_client
 import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="AI 资产库 Ultimate v2", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI 资产库 Ultimate v3", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 优化 ---
+# --- CSS 终极美化 (修复对齐与宽度) ---
 st.markdown("""
 <style>
+    /* 1. 登录框居中 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
     
-    /* 卡片微调 */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 10px;
+    /* 2. 强制底部操作栏按钮对齐 & 等宽等高 */
+    /* 针对卡片底部的 columns 里的按钮进行样式重置 */
+    div[data-testid="stVerticalBlockBorderWrapper"] button {
+        width: 100% !important;  /* 填满所在列的宽度 */
+        padding: 0px 5px !important; /* 减小内边距 */
+        height: auto !important;
+        min-height: 38px !important; /* 强制统一高度 */
+        line-height: 1 !important;
+        border: 1px solid #f0f2f6;
     }
     
-    /* 调整多选框的tag样式 */
+    /* 3. 调整多选框的tag样式 */
     .stMultiSelect span {
-        background-color: #f0f2f6;
-        color: #31333F;
+        background-color: #e8f0fe;
+        color: #1a73e8;
         border-radius: 4px;
+        font-size: 0.85rem;
+    }
+
+    /* 4. 修复 Popover 按钮有时候比 Button 矮的问题 */
+    div[data-testid="stPopover"] > button {
+        min-height: 38px !important;
+        border: 1px solid #f0f2f6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -56,19 +70,15 @@ def init_connection():
 check_login()
 supabase = init_connection()
 
-# --- 全局数据获取 (为了下拉框和筛选) ---
-# 每次刷新页面获取一次所有标签，保证下拉框是最新的
+# --- 全局数据预取 ---
 try:
     all_data_preview = supabase.table("gallery").select("category, style").execute().data
-    
-    # 提取所有分类
     all_cats = sorted(list(set([i['category'] for i in all_data_preview if i.get('category')])))
     
-    # 提取所有风格 (处理多选逗号分隔的情况)
+    # 提取所有风格标签
     raw_styles = [i['style'] for i in all_data_preview if i.get('style')]
     all_styles = set()
     for s in raw_styles:
-        # 把 "3D, 赛博朋克" 拆分成单独的标签
         tags = [tag.strip() for tag in s.split(',')]
         all_styles.update(tags)
     all_styles = sorted(list(all_styles))
@@ -79,11 +89,9 @@ except:
 # --- 4. 侧边栏：录入系统 ---
 with st.sidebar:
     st.header("📤 新增资产")
-
-    # 1. 备注名称 (必填)
     new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
 
-    # 2. 分类选择 (下拉 + 新建)
+    # 分类
     st.write("📂 **分类 (Category)**")
     cat_mode = st.radio("分类方式", ["选择已有", "新建"], horizontal=True, label_visibility="collapsed")
     if cat_mode == "选择已有":
@@ -92,28 +100,21 @@ with st.sidebar:
         final_category = st.text_input("输入新分类", placeholder="例如: logo设计", label_visibility="collapsed").strip()
         if not final_category: final_category = "默认分类"
 
-    # 3. 风格选择 (多选下拉 + 新建)
+    # 风格
     st.write("🎨 **风格 (Style - 可多选)**")
-    # 多选框
     selected_styles = st.multiselect("选择风格", all_styles, placeholder="选择标签...")
-    # 补充输入框
     new_style_input = st.text_input("新增风格 (可选)", placeholder="输入新标签，多个用逗号隔开")
     
-    # 合并逻辑
+    # 合并风格
     final_style_list = selected_styles.copy()
     if new_style_input:
-        # 处理用户手动输入: "油画, 4k" -> ["油画", "4k"]
         manual_tags = [t.strip() for t in new_style_input.replace('，', ',').split(',') if t.strip()]
         final_style_list.extend(manual_tags)
-    
-    # 转为字符串存库: ["A", "B"] -> "A, B"
     final_style_str = ", ".join(list(set(final_style_list)))
 
-    # 4. 内容录入
     prompt_text = st.text_area("提示词 (Prompt)", height=150)
     uploaded_file = st.file_uploader("上传图片 (可选，不传则为纯文本)", type=['jpg', 'png', 'jpeg', 'webp'])
 
-    # 5. 提交逻辑
     if st.button("🚀 提交保存", type="primary", use_container_width=True):
         if new_title:
             with st.spinner("处理中..."):
@@ -145,57 +146,57 @@ with st.sidebar:
 
 st.title("🌌 我的 AI 资产库")
 
-# --- 卡片渲染函数 (重构版：解决排版乱的问题) ---
+# --- 卡片渲染函数 (修复版) ---
 def render_card(item, is_text_only=False):
-    # 边框容器
     with st.container(border=True):
         
-        # [区域1] 图片展示 (放在最上面，最显眼)
+        # [区域1] 图片
         if not is_text_only and item['image_url']:
             st.image(item['image_url'], use_container_width=True)
         elif is_text_only:
             st.info(item['prompt'][:100] + "..." if item['prompt'] else "(无内容)")
         
-        # [区域2] 标题与关键信息 (加粗标题)
+        # [区域2] 标题
         st.markdown(f"#### {item.get('title', '未命名')}")
         
-        # 解析多风格标签
+        # [区域3] 标签
         current_style_str = item.get('style', '')
         current_style_list = [s.strip() for s in current_style_str.split(',')] if current_style_str else []
-        
-        # 显示标签 (分类 | 风格1, 风格2...)
         tags_display = f"📂 **{item['category']}**"
         if current_style_list:
             tags_display += f"  |  🎨 {', '.join(current_style_list)}"
-        st.caption(tags_display)
-
-        # [区域3] 底部操作栏 (一行排开：置顶、收藏、编辑、删除)
-        # 使用 col 布局让图标紧凑
-        col_act1, col_act2, col_act3, col_act4, col_act5 = st.columns([1, 1, 1, 1, 2])
         
-        with col_act1:
-            # 📌 置顶
+        # 限制标签显示长度，防止把卡片撑得太长
+        if len(tags_display) > 50:
+             st.caption(tags_display[:50] + "...")
+        else:
+             st.caption(tags_display)
+
+        # [区域4] 底部操作栏 (等分5列，保证对齐)
+        # 这里的 key 是为了让 st.columns 生成 5 个等宽的格子
+        c1, c2, c3, c4, c5 = st.columns(5)
+        
+        with c1:
             pin_icon = "📌" if item['is_pinned'] else "📍"
             if st.button(pin_icon, key=f"pin_{item['id']}", help="置顶"):
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute()
                 st.rerun()
         
-        with col_act2:
-            # ❤️ 收藏
+        with c2:
             fav_icon = "❤️" if item['is_favorite'] else "🤍"
             if st.button(fav_icon, key=f"fav_{item['id']}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
                 st.rerun()
 
-        with col_act3:
-            # 📄 复制
-            with st.popover("📄"):
+        with c3:
+            # 复制
+            with st.popover("📄", use_container_width=True):
                  st.code(item['prompt'], language=None)
 
-        with col_act4:
-            # 🗑️ 删除 (带确认)
-            with st.popover("🗑️"):
-                st.write("删掉？")
+        with c4:
+            # 删除
+            with st.popover("🗑️", use_container_width=True):
+                st.write("删？")
                 if st.button("Yes", key=f"del_{item['id']}", type="primary"):
                     supabase.table("gallery").delete().eq("id", item['id']).execute()
                     if item['image_url']:
@@ -205,113 +206,91 @@ def render_card(item, is_text_only=False):
                         except: pass
                     st.rerun()
 
-        with col_act5:
-            # ✏️ 编辑 (全能修改：下拉+新建)
-            with st.popover("✏️ 编辑", use_container_width=True):
+        with c5:
+            # 编辑 (改成纯图标，解决宽度问题)
+            with st.popover("✏️", use_container_width=True):
                 with st.form(key=f"edit_form_{item['id']}"):
                     st.write("**编辑信息**")
                     new_title = st.text_input("标题", value=item['title'])
                     
-                    # 编辑分类：下拉选择
-                    cat_index = all_cats.index(item['category']) if item['category'] in all_cats else 0
-                    edit_cat_sel = st.selectbox("分类 (选择)", all_cats, index=cat_index)
-                    edit_cat_new = st.text_input("分类 (或输入新分类)")
-                    # 逻辑：如果填了新的，用新的；否则用选的
-                    final_edit_cat = edit_cat_new.strip() if edit_cat_new.strip() else edit_cat_sel
+                    # --- 修复：分类编辑 ---
+                    # 1. 优先使用下拉框
+                    current_cat = item['category']
+                    cat_index = all_cats.index(current_cat) if current_cat in all_cats else 0
                     
-                    # 编辑风格：多选框
-                    # 预先选中当前的风格
+                    st.write("分类:")
+                    edit_cat_sel = st.selectbox("选择已有", all_cats, index=cat_index, key=f"sel_cat_{item['id']}")
+                    edit_cat_new = st.text_input("或：输入新分类 (将覆盖选项)", key=f"new_cat_{item['id']}")
+                    
+                    # --- 修复：风格编辑 ---
+                    st.write("风格:")
                     default_styles = [s for s in current_style_list if s in all_styles]
-                    edit_style_sel = st.multiselect("风格 (多选)", all_styles, default=default_styles)
-                    edit_style_new = st.text_input("新增风格 (可选)")
+                    edit_style_sel = st.multiselect("选择已有", all_styles, default=default_styles, key=f"sel_style_{item['id']}")
+                    edit_style_new = st.text_input("或：输入新风格", key=f"new_style_{item['id']}")
                     
-                    # 编辑提示词
                     new_prompt = st.text_area("提示词", value=item['prompt'], height=100)
                     
                     if st.form_submit_button("保存修改"):
-                        # 合并风格
-                        final_edit_styles = edit_style_sel.copy()
+                        # 逻辑：如果输入框有字，优先用输入框
+                        final_cat = edit_cat_new.strip() if edit_cat_new.strip() else edit_cat_sel
+                        
+                        # 逻辑：合并风格
+                        final_styles = edit_style_sel.copy()
                         if edit_style_new:
-                            final_edit_styles.extend([t.strip() for t in edit_style_new.split(',') if t.strip()])
-                        final_style_str = ", ".join(list(set(final_edit_styles)))
+                            final_styles.extend([t.strip() for t in edit_style_new.replace('，', ',').split(',') if t.strip()])
+                        final_style_str = ", ".join(list(set(final_styles)))
                         
                         supabase.table("gallery").update({
                             "title": new_title, 
-                            "category": final_edit_cat, 
+                            "category": final_cat, 
                             "style": final_style_str, 
                             "prompt": new_prompt
                         }).eq("id", item['id']).execute()
                         st.rerun()
 
-
-# --- 数据读取与筛选逻辑 ---
-
-# 1. 顶部 Tab
+# --- 数据筛选与展示 ---
 tabs = st.tabs(["🖼️ 灵感图库", "📝 纯提示词", "⭐ 我的收藏"])
 
-# 2. 筛选区域 (全局筛选，两个Tab通用)
 st.markdown("---")
 f_col1, f_col2, f_col3 = st.columns([2, 2, 1])
 with f_col1:
-    # 筛选分类
     filter_cats = st.multiselect("📂 筛选分类", all_cats)
 with f_col2:
-    # 筛选风格
     filter_styles = st.multiselect("🎨 筛选风格", all_styles)
 with f_col3:
     layout_cols = st.slider("列数", 2, 6, 4)
 
-# 3. 核心数据查询与处理
-# Supabase 不支持复杂的 "Array Contains" 逻辑查询 CSV 字符串，
-# 所以我们把所有数据拉下来(个人使用数据量不大)，在 Python 里做筛选。
+# 数据查询
 raw_data = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True).execute().data
 
-# Python 筛选逻辑
 filtered_data = []
 for item in raw_data:
-    # A. 分类筛选
-    if filter_cats and item['category'] not in filter_cats:
-        continue
-    
-    # B. 风格筛选 (包含逻辑：只要包含其中一个选中风格就显示)
+    if filter_cats and item['category'] not in filter_cats: continue
     if filter_styles:
         item_styles = [s.strip() for s in item.get('style', '').split(',')]
-        # 求交集：如果交集为空，说明没有选中的风格
-        if not set(filter_styles).intersection(set(item_styles)):
-            continue
-            
+        if not set(filter_styles).intersection(set(item_styles)): continue
     filtered_data.append(item)
 
-# 4. Tab 内容渲染
-with tabs[0]: # 图库
-    # 过滤出有图的
+with tabs[0]:
     data_img = [d for d in filtered_data if d['image_url']]
-    if not data_img:
-        st.info("没有符合条件的图片资产")
+    if not data_img: st.info("暂无图片")
     else:
         c_img = st.columns(layout_cols)
         for idx, item in enumerate(data_img):
-            with c_img[idx % layout_cols]:
-                render_card(item, is_text_only=False)
+            with c_img[idx % layout_cols]: render_card(item, False)
 
-with tabs[1]: # 纯文本
-    # 过滤出无图的
+with tabs[1]:
     data_txt = [d for d in filtered_data if not d['image_url']]
-    if not data_txt:
-        st.info("没有符合条件的纯文本资产")
+    if not data_txt: st.info("暂无纯文本")
     else:
-        c_txt = st.columns(layout_cols) # 纯文本一般不需要太多列，也可以复用slider
+        c_txt = st.columns(layout_cols)
         for idx, item in enumerate(data_txt):
-            with c_txt[idx % layout_cols]:
-                render_card(item, is_text_only=True)
+            with c_txt[idx % layout_cols]: render_card(item, True)
 
-with tabs[2]: # 收藏
-    # 过滤 is_favorite = True，且符合筛选条件
+with tabs[2]:
     data_fav = [d for d in filtered_data if d['is_favorite']]
-    if not data_fav:
-        st.info("没有收藏内容")
+    if not data_fav: st.info("暂无收藏")
     else:
         c_fav = st.columns(layout_cols)
         for idx, item in enumerate(data_fav):
-            with c_fav[idx % layout_cols]:
-                render_card(item, is_text_only=(item['image_url'] is None))
+            with c_fav[idx % layout_cols]: render_card(item, (item['image_url'] is None))

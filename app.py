@@ -13,49 +13,21 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 问题3修复：缩小卡片边框内部的留白 (Padding) */
-    /* ================================================================= */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        padding: 10px !important; /* 原来是 1rem (16px)，现在改紧凑 */
-    }
-
-    /* ================================================================= */
-    /* 问题1修复：弹窗图片高度限制放宽 */
-    /* ================================================================= */
-    img {
-        max-height: 85vh !important; /* 允许图片占屏幕高度的 85% */
-        object-fit: contain;
-        width: 100%;
-        display: block;
-    }
-
-    /* ================================================================= */
-    /* 核心修复：按钮内 Emoji 居中 */
-    /* ================================================================= */
-    .stButton button p {
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    /* ================================================================= */
-    /* 问题2修复：全屏按钮与下方按钮的间隙 */
+    /* 修复1：全屏查看按钮与下方图标的间隙 (强制压缩) */
     /* ================================================================= */
     
     /* 全宽“全屏查看”按钮 */
     .full-view-btn button {
-        margin-top: 5px !important;    /* 离上面文字近一点 */
-        margin-bottom: 4px !important; /* 【核心】离下面图标只有 4px */
-        min-height: 32px !important;   /* 稍微做薄一点，显得精致 */
+        margin-top: 4px !important;
+        margin-bottom: 2px !important; /* 【核心】极小的下边距 */
+        min-height: 30px !important;   /* 再变薄一点，省空间 */
         border-radius: 6px !important;
         font-weight: 500 !important;
         background-color: #f0f2f6 !important;
         border: 1px solid #e0e0e0 !important;
         color: #31333F !important;
-        font-size: 0.9rem !important;
+        font-size: 0.85rem !important;
+        line-height: 1 !important;
     }
     .full-view-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
     
@@ -65,7 +37,7 @@ st.markdown("""
         width: 100% !important;
         min-height: 36px !important;
         padding: 0 !important;
-        margin: 0 !important; /* 确保没有多余外边距 */
+        margin-top: 0px !important; /* 【核心】顶部无边距，紧贴上面 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -77,8 +49,37 @@ st.markdown("""
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
     /* ================================================================= */
-    /* 通用去间隙 */
+    /* 修复3：全屏弹窗防溢出 & 顶部间距优化 */
     /* ================================================================= */
+    
+    /* 1. 限制所有图片的默认高度，防止撑爆屏幕 */
+    img {
+        max-height: 70vh !important; /* 【核心】只占屏幕高度的70%，留出30%给标题和边距 */
+        object-fit: contain;
+        width: 100%;
+        display: block;
+    }
+    
+    /* 2. 尝试调整 Modal 的垂直位置 (减少顶部留白) */
+    div[data-testid="stDialog"] {
+        padding-top: 2rem !important; /* 减少顶部 Padding */
+    }
+
+    /* ================================================================= */
+    /* 其他基础修复 */
+    /* ================================================================= */
+    
+    /* 卡片内边距缩小 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 10px !important; }
+    
+    /* 按钮内 Emoji 居中 */
+    .stButton button p {
+        margin: 0 !important; padding: 0 !important;
+        line-height: 1 !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
+    }
+    
+    /* 去间隙 */
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
@@ -141,8 +142,7 @@ def edit_dialog(item):
 
 @st.dialog("🔍 详情", width="large")
 def view_dialog(item):
-    # 使用大比例，让图片尽可能大
-    c1, c2 = st.columns([2, 1])
+    c1, c2 = st.columns([1.8, 1])
     with c1: 
         if item['image_url']: st.image(item['image_url'], use_container_width=True)
         else: st.info("无图")
@@ -152,12 +152,12 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider(); st.caption("提示词:"); st.code(item['prompt'], language=None)
 
-# 修改4：新增提示词专用大弹窗
-@st.dialog("📄 提示词", width="large")
+# 修复2：提示词弹窗改为 "small" 宽度
+@st.dialog("📄 提示词", width="small")
 def prompt_dialog(prompt_text):
-    st.markdown("##### 完整提示词内容")
+    st.markdown("##### 完整提示词")
     st.code(prompt_text, language=None)
-    st.caption("提示：点击右上角图标即可一键复制")
+    st.caption("点击右上角图标复制")
 
 # --- 5. 侧边栏 ---
 with st.sidebar:
@@ -214,13 +214,13 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 全屏查看按钮 (全宽，无Emoji)
+        # 3. 全屏查看按钮 (margin-bottom: 2px)
         st.markdown('<div class="full-view-btn">', unsafe_allow_html=True)
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. 底部 4 个图标 (Pin, Fav, Prompt, Menu)
+        # 4. 底部 4 个图标 (Pin, Fav, Prompt, Menu) (margin-top: 0)
         b1, b2, b3, b4 = st.columns(4, gap="small")
         
         with b1:
@@ -238,7 +238,7 @@ def render_card(item, is_text_only=False, key_suffix="main"):
             st.markdown('</div>', unsafe_allow_html=True)
 
         with b3:
-            # 提示词按钮：改成 button 触发大弹窗
+            # 提示词按钮：触发 small width 弹窗
             st.markdown('<div class="square-icon-btn">', unsafe_allow_html=True)
             if st.button("📄", key=f"txt_{item['id']}_{key_suffix}", help="查看提示词"):
                 prompt_dialog(item['prompt'])

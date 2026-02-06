@@ -3,13 +3,18 @@ from supabase import create_client
 import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="AI 灵感库 Pro Max", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI 资产库 Ultimate", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS: 登录框居中 ---
+# --- CSS 美化 ---
 st.markdown("""
 <style>
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
+    /* 调整 tab 字体 */
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -22,10 +27,9 @@ def check_login():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.markdown("<br><br><br>", unsafe_allow_html=True)
-            st.title("🔒 灵感库保险箱")
-            st.info("请输入访问密码")
-            password = st.text_input("Password", type="password", label_visibility="collapsed")
-            if st.button("解锁进入", use_container_width=True):
+            st.title("🔒 AI 资产库")
+            password = st.text_input("访问密码", type="password", label_visibility="collapsed")
+            if st.button("解锁", use_container_width=True):
                 if password == st.secrets["APP_PASSWORD"]:
                     st.session_state.authenticated = True
                     st.rerun()
@@ -44,164 +48,213 @@ def init_connection():
 # --- 3. 初始化 ---
 check_login()
 supabase = init_connection()
-st.title("🎨 AI 灵感收藏夹 Pro Max")
 
-# --- 4. 侧边栏：上传逻辑 (逻辑重构) ---
+# --- 4. 侧边栏：录入系统 ---
 with st.sidebar:
-    st.header("📤 录入新作品")
+    st.header("📤 新增资产")
     
-    # A. 获取现有分类 (Category)
+    # 0. 获取现有数据 (用于下拉框)
     try:
+        # 获取已有分类
         cat_query = supabase.table("gallery").select("category").execute()
-        # 提取去重，过滤掉None
-        existing_cats = list(set([item['category'] for item in cat_query.data if item and item.get('category')]))
-        existing_cats.sort()
+        existing_cats = sorted(list(set([i['category'] for i in cat_query.data if i.get('category')])))
+        
+        # 获取已有风格 (你的需求: 风格也要下拉框)
+        style_query = supabase.table("gallery").select("style").execute()
+        existing_styles = sorted(list(set([i['style'] for i in style_query.data if i.get('style')])))
     except:
         existing_cats = []
-    
-    # B. 分类选择 (必填，默认为"默认分类")
-    cat_mode = st.radio("分类来源", ["选择已有", "创建新分类"], horizontal=True, label_visibility="collapsed")
-    
-    final_category = "默认分类" # 兜底默认值
-    
-    if cat_mode == "选择已有" and existing_cats:
-        final_category = st.selectbox("选择分类 (Category)", existing_cats)
-    else:
-        new_cat_input = st.text_input("新建分类 (Category)", placeholder="例如: 角色设计")
-        if new_cat_input.strip():
-            final_category = new_cat_input.strip()
+        existing_styles = []
 
-    # C. 风格与内容 (选填)
-    style_tag = st.text_input("风格标签 (Style - 选填)", placeholder="例如: 赛博朋克, 3D渲染")
-    prompt_text = st.text_area("提示词 (Prompt - 选填)", height=150)
-    uploaded_file = st.file_uploader("上传图片 (必填)", type=['jpg', 'png', 'jpeg', 'webp'])
+    # 1. 备注名称 (必填)
+    new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
 
-    # D. 提交逻辑
-    if st.button("🚀 提交保存", type="primary"):
-        if uploaded_file: # 只有图片是硬性必填
-            with st.spinner("正在上传..."):
-                # 1. 上传图片
-                file_bytes = uploaded_file.getvalue()
-                file_ext = uploaded_file.name.split('.')[-1]
-                file_name = f"img_{int(time.time())}.{file_ext}"
-                
-                supabase.storage.from_("images").upload(file_name, file_bytes, {"content-type": f"image/{file_ext}"})
-                img_url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{file_name}"
+    # 2. 分类选择 (下拉或新建)
+    st.write("📂 **分类 (Category)**")
+    cat_tabs = st.tabs(["选择已有", "新建"])
+    with cat_tabs[0]:
+        sel_cat = st.selectbox("已有分类", existing_cats if existing_cats else ["默认分类"], label_visibility="collapsed")
+    with cat_tabs[1]:
+        new_cat = st.text_input("输入新分类", placeholder="例如: logo设计", label_visibility="collapsed")
+    final_category = new_cat if new_cat.strip() else sel_cat
 
-                # 2. 存入数据库 (category必填, 其他选填)
+    # 3. 风格选择 (下拉或新建)
+    st.write("🎨 **风格 (Style)**")
+    style_tabs = st.tabs(["选择已有", "新建"])
+    with style_tabs[0]:
+        sel_style = st.selectbox("已有风格", existing_styles if existing_styles else [""], label_visibility="collapsed")
+    with style_tabs[1]:
+        new_style = st.text_input("输入新风格", placeholder="例如: 3D, 极简", label_visibility="collapsed")
+    final_style = new_style if new_style.strip() else sel_style
+    # 如果用户在两个tab都没选/没填，且已有列表为空，style则为空
+    if not final_style and not existing_styles: final_style = ""
+
+    # 4. 内容录入
+    prompt_text = st.text_area("提示词 (Prompt)", height=150)
+    uploaded_file = st.file_uploader("上传图片 (可选，不传则为纯文本)", type=['jpg', 'png', 'jpeg', 'webp'])
+
+    # 5. 提交逻辑
+    if st.button("🚀 提交保存", type="primary", use_container_width=True):
+        if new_title and final_category:
+            with st.spinner("处理中..."):
+                img_url = None
+                # 如果有图片，先上传
+                if uploaded_file:
+                    file_bytes = uploaded_file.getvalue()
+                    file_ext = uploaded_file.name.split('.')[-1]
+                    file_name = f"img_{int(time.time())}.{file_ext}"
+                    supabase.storage.from_("images").upload(file_name, file_bytes, {"content-type": f"image/{file_ext}"})
+                    img_url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{file_name}"
+
+                # 存入数据库
                 data = {
+                    "title": new_title,
                     "category": final_category,
-                    "style": style_tag if style_tag else "",
-                    "prompt": prompt_text if prompt_text else "",
-                    "image_url": img_url
+                    "style": final_style,
+                    "prompt": prompt_text,
+                    "image_url": img_url,
+                    "is_pinned": False,
+                    "is_favorite": False
                 }
                 supabase.table("gallery").insert(data).execute()
-                
-                st.success(f"✅ 已存入分类：{final_category}")
+                st.success("✅ 保存成功！")
                 time.sleep(1)
                 st.rerun()
         else:
-            st.warning("⚠️ 请至少上传一张图片")
+            st.error("⚠️ 标题和分类不能为空")
 
-# --- 5. 主界面：展示逻辑 ---
+# --- 5. 主界面：展示系统 ---
 
-# 顶部筛选栏
-col_filter, col_layout = st.columns([3, 1])
-with col_filter:
-    # 这里现在筛选的是 "分类 (Category)"
-    if existing_cats:
-        selected_cats = st.multiselect("📂 按分类筛选", existing_cats, placeholder="显示全部分类")
-    else:
-        selected_cats = []
-with col_layout:
-    num_columns = st.slider("👁️ 布局", 2, 6, 4)
+# 页面顶部标题
+st.title("🌌 我的 AI 资产库")
 
-st.divider()
-
-# 数据读取
-query = supabase.table("gallery").select("*").order("id", desc=True)
-if selected_cats:
-    query = query.in_("category", selected_cats) # 按分类过滤
-items = query.execute().data
-
-if not items:
-    st.info("📭 暂无数据")
-
-# 瀑布流
-cols = st.columns(num_columns)
-
-for idx, item in enumerate(items):
-    with cols[idx % num_columns]:
-        with st.container(border=True):
-            st.image(item['image_url'], use_container_width=True)
-            
-            # 展示信息：主分类 + 风格标签
-            # 只有当 style 有值时才显示 style
-            caption_text = f"📂 {item.get('category', '默认分类')}"
-            if item.get('style'):
-                caption_text += f" | 🏷️ {item['style']}"
-            st.caption(caption_text)
-            
-            # 按钮区
-            b1, b2, b3 = st.columns([1, 2, 1])
-            
-            # --- 功能 A: 全能编辑 (修改分类、风格、提示词) ---
-            with b1:
-                with st.popover("✏️"):
-                    st.markdown("### 修改作品信息")
-                    with st.form(key=f"edit_form_{item['id']}"):
-                        # 所有字段都可修改
-                        new_cat = st.text_input("分类 (Category)", value=item.get('category', '默认分类'))
-                        new_style = st.text_input("风格 (Style)", value=item.get('style', ''))
-                        new_prompt = st.text_area("提示词", value=item.get('prompt', ''), height=150)
-                        
-                        st.markdown("---")
-                        st.markdown("**更换图片 (选填):**")
-                        new_img_file = st.file_uploader("上传新图替换旧图", type=['jpg', 'png', 'webp'], key=f"u_{item['id']}")
-                        
-                        if st.form_submit_button("确认修改"):
-                            update_data = {
-                                "category": new_cat,
-                                "style": new_style,
-                                "prompt": new_prompt
-                            }
-                            
-                            # 图片替换逻辑
-                            if new_img_file:
-                                try:
-                                    old_name = item['image_url'].split('/')[-1]
-                                    supabase.storage.from_("images").remove([old_name])
-                                except: pass
-                                
-                                f_bytes = new_img_file.getvalue()
-                                f_ext = new_img_file.name.split('.')[-1]
-                                f_name = f"img_{int(time.time())}.{f_ext}"
-                                supabase.storage.from_("images").upload(f_name, f_bytes, {"content-type": f"image/{f_ext}"})
-                                
-                                new_url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{f_name}"
-                                update_data["image_url"] = new_url
-                            
-                            supabase.table("gallery").update(update_data).eq("id", item['id']).execute()
-                            st.success("修改成功！")
-                            time.sleep(0.5)
-                            st.rerun()
-
-            # --- 功能 B: 提示词 (如果为空则显示无) ---
-            with b2:
-                with st.popover("📄 提示词", use_container_width=True):
-                    if item.get('prompt'):
-                        st.code(item['prompt'], language=None)
-                    else:
-                        st.info("未记录提示词")
-
-            # --- 功能 C: 删除 ---
-            with b3:
-                with st.popover("🗑️"):
-                    st.write("确认删除？")
-                    if st.button("Yes", key=f"del_{item['id']}", type="primary"):
-                        supabase.table("gallery").delete().eq("id", item['id']).execute()
+# 定义卡片渲染函数 (复用逻辑)
+def render_card(item, is_text_only=False):
+    with st.container(border=True):
+        # 顶部工具栏：置顶 & 收藏 & 删除
+        c1, c2, c3, c4 = st.columns([5, 1, 1, 1])
+        with c1:
+            st.markdown(f"**{item.get('title', '未命名')}**")
+        with c2:
+            # 置顶按钮
+            pin_icon = "📌" if item['is_pinned'] else "📍"
+            if st.button(pin_icon, key=f"pin_{item['id']}", help="点击置顶/取消"):
+                supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute()
+                st.rerun()
+        with c3:
+            # 收藏按钮
+            fav_icon = "❤️" if item['is_favorite'] else "🤍"
+            if st.button(fav_icon, key=f"fav_{item['id']}", help="收藏"):
+                supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
+                st.rerun()
+        with c4:
+            # 删除按钮
+            with st.popover("🗑️"):
+                st.write("确认删除？")
+                if st.button("Yes", key=f"del_{item['id']}", type="primary"):
+                    supabase.table("gallery").delete().eq("id", item['id']).execute()
+                    if item['image_url']:
                         try:
                             fname = item['image_url'].split('/')[-1]
                             supabase.storage.from_("images").remove([fname])
                         except: pass
+                    st.rerun()
+
+        # 中间内容区
+        if not is_text_only and item['image_url']:
+            st.image(item['image_url'], use_container_width=True)
+        else:
+            # 纯文本模式显示大段提示词
+            st.info(item['prompt'] if item['prompt'] else "(无提示词内容)")
+
+        # 底部标签区
+        st.caption(f"📂 {item['category']} | 🎨 {item['style']}")
+        
+        # 底部操作区 (编辑 & 复制)
+        b1, b2 = st.columns([1, 3])
+        with b1:
+             with st.popover("✏️ 编辑"):
+                with st.form(key=f"edit_{item['id']}"):
+                    e_title = st.text_input("标题", value=item['title'])
+                    e_cat = st.text_input("分类", value=item['category'])
+                    e_style = st.text_input("风格", value=item['style'])
+                    e_prompt = st.text_area("提示词", value=item['prompt'])
+                    if st.form_submit_button("保存修改"):
+                        supabase.table("gallery").update({
+                            "title": e_title, "category": e_cat, 
+                            "style": e_style, "prompt": e_prompt
+                        }).eq("id", item['id']).execute()
                         st.rerun()
+        with b2:
+             with st.popover("📄 复制提示词", use_container_width=True):
+                 st.code(item['prompt'], language=None)
+
+# --- 数据读取与筛选 ---
+# 逻辑：先按置顶排序，再按ID倒序
+base_query = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True)
+
+# 顶部 Tab 切换
+tabs = st.tabs(["🖼️ 灵感图库", "📝 纯提示词", "⭐ 我的收藏"])
+
+# --- Tab 1: 灵感图库 (只看有图的) ---
+with tabs[0]:
+    # 筛选器
+    col_f, col_l = st.columns([3,1])
+    with col_f:
+        # 只显示属于"有图"的分类
+        if existing_cats:
+            sel_cats_img = st.multiselect("📂 筛选分类", existing_cats, key="filter_img")
+        else: sel_cats_img = []
+    with col_l:
+        cols_img = st.slider("列数", 2, 6, 4, key="slider_img")
+
+    # 查询数据
+    query_img = base_query.neq("image_url", "null") # 只要有图的
+    if sel_cats_img: query_img = query_img.in_("category", sel_cats_img)
+    data_img = query_img.execute().data
+
+    if not data_img: st.info("这里空空如也~")
+    
+    # 渲染
+    c_img = st.columns(cols_img)
+    for idx, item in enumerate(data_img):
+        with c_img[idx % cols_img]:
+            render_card(item, is_text_only=False)
+
+# --- Tab 2: 纯提示词 (只看无图的) ---
+with tabs[1]:
+    col_f2, col_l2 = st.columns([3,1])
+    with col_f2:
+        if existing_cats:
+            sel_cats_txt = st.multiselect("📂 筛选分类", existing_cats, key="filter_txt")
+        else: sel_cats_txt = []
+    with col_l2:
+        cols_txt = st.slider("列数", 2, 4, 3, key="slider_txt")
+
+    query_txt = base_query.is_("image_url", "null") # 只要没图的
+    if sel_cats_txt: query_txt = query_txt.in_("category", sel_cats_txt)
+    data_txt = query_txt.execute().data
+
+    if not data_txt: st.info("没有纯提示词记录")
+
+    c_txt = st.columns(cols_txt)
+    for idx, item in enumerate(data_txt):
+        with c_txt[idx % cols_txt]:
+            render_card(item, is_text_only=True)
+
+# --- Tab 3: 收藏夹 (只看 is_favorite=True) ---
+with tabs[2]:
+    st.caption("这里汇集了你标记为 ❤️ 的所有内容（包含图片和纯文本）")
+    cols_fav = st.slider("列数", 2, 6, 4, key="slider_fav")
+    
+    query_fav = base_query.eq("is_favorite", True)
+    data_fav = query_fav.execute().data
+    
+    if not data_fav: st.info("还没有收藏任何内容")
+    
+    c_fav = st.columns(cols_fav)
+    for idx, item in enumerate(data_fav):
+        with c_fav[idx % cols_fav]:
+            # 判断是图还是文，自动适配
+            is_txt = item['image_url'] is None
+            render_card(item, is_text_only=is_txt)

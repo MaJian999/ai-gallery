@@ -5,35 +5,32 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 像素级暴力修复 ---
+# --- CSS 修复 (只修按钮对齐，不动其他) ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
 
-    /* ================================================================= */
-    /* 核心修复 A：Emoji 绝对居中 (针对三个功能按钮) */
-    /* ================================================================= */
-    
-    /* 1. 锁定中间这三个按钮的外壳 */
-    div[data-testid="column"] button {
+    /* 2. 核心修复：中间三个小按钮 (View, Pin, Fav) 的绝对居中 */
+    .icon-btn button {
         aspect-ratio: 1 / 1 !important;
-        min-height: 34px !important;
-        height: 34px !important;
         width: 100% !important;
+        min-height: 36px !important;
+        height: auto !important;
         padding: 0 !important;
+        margin: 0 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        border: 1px solid #eee !important;
+        border: 1px solid #f0f2f6 !important;
         border-radius: 6px !important;
-        box-shadow: none !important;
         background-color: white !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-
-    /* 2. 穿透修复：强制把按钮里的 emoji (p标签) 摁在正中间 */
-    div[data-testid="column"] button p {
+    
+    /* 强制去除 Emoji 此时可能带有的 margin */
+    .icon-btn button p {
         margin: 0 !important;
         padding: 0 !important;
         line-height: 1 !important;
@@ -41,70 +38,46 @@ st.markdown("""
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        transform: translateY(-1px); /* 微调：emoji视觉重心通常偏高，往下压1像素 */
+        transform: translateY(-2px); /* 视觉微调：往上提一点点使其视觉垂直居中 */
     }
 
-    /* 悬停变色 */
-    div[data-testid="column"] button:hover {
+    /* 悬停效果 */
+    .icon-btn button:hover {
         border-color: #ff4b4b !important;
-        background-color: #fff5f5 !important;
+        background-color: #fff1f1 !important;
+        color: #ff4b4b !important;
     }
 
-    /* ================================================================= */
-    /* 核心修复 B：消灭间距 (Compact Mode) */
-    /* ================================================================= */
-    
-    /* 1. 标题 (h4) */
-    h4 {
-        margin-bottom: 2px !important;
-        padding-bottom: 0 !important;
-        font-size: 0.95rem !important;
-        line-height: 1.2 !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    /* 2. 标签 (Caption) */
-    div[data-testid="stCaptionContainer"] {
-        margin-bottom: 4px !important; /* 标题和标签很近 */
-        margin-top: 0px !important;
-        font-size: 0.75rem !important;
-        line-height: 1.2 !important;
-        color: #666 !important;
-    }
-
-    /* 3. 中间按钮组所在的 Columns 容器 */
-    /* 这是一个比较狠的招数：找到按钮上面的那个 div，把它的下边距砍掉 */
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0.5rem !important; /* 减小列之间的间隙 */
-    }
-    
-    /* 4. 分割线 (hr) */
-    hr {
-        margin: 8px 0 !important; /* 减小分割线上下的留白 */
-    }
-
-    /* ================================================================= */
-    /* 其他样式 */
-    /* ================================================================= */
-
-    /* 底部大按钮 (提示词) */
-    .bottom-wide button {
+    /* 3. 底部大按钮 (提示词) */
+    .wide-btn button {
         width: 100% !important;
-        min-height: 36px !important;
+        min-height: 38px !important;
         background-color: #f8f9fa !important;
+        border: 1px solid #e0e0e0 !important;
         border-radius: 6px !important;
-        font-size: 0.9rem !important;
-        aspect-ratio: auto !important; /* 覆盖上面的正方形规则 */
+        color: #333 !important;
         justify-content: flex-start !important; /* 文字左对齐 */
         padding-left: 10px !important;
     }
-    
-    /* 底部菜单按钮 (⋮) */
-    .bottom-menu button {
-        font-weight: bold !important;
-        background-color: #f8f9fa !important;
+
+    /* 4. 底部菜单按钮 (⋮) */
+    .menu-btn button {
+        aspect-ratio: 1 / 1 !important;
+        width: 100% !important;
+        min-height: 38px !important;
+        border-radius: 6px !important;
+    }
+
+    /* 5. 间隙微调：减少标题和标签之间的留白 */
+    h4 {
+        margin-bottom: 2px !important;
+        padding-bottom: 0 !important;
+    }
+    div[data-testid="stCaptionContainer"] {
+        margin-bottom: 8px !important;
+    }
+    hr {
+        margin: 8px 0 !important;
     }
 
     /* 隐藏 Popover 箭头 */
@@ -118,7 +91,7 @@ st.markdown("""
         font-size: 0.85rem;
     }
     
-    /* 图片高度限制 */
+    /* 限制图片高度 */
     img {
         max-height: 600px;
         object-fit: contain;
@@ -157,162 +130,220 @@ def init_connection():
 check_login()
 supabase = init_connection()
 
-# --- 4. 弹窗 ---
+# --- 4. 弹窗与数据 ---
 try:
     all_data = supabase.table("gallery").select("category, style").execute().data
     all_cats = sorted(list(set([i['category'] for i in all_data if i.get('category')])))
     raw_s = [i['style'] for i in all_data if i.get('style')]
     all_styles = set()
-    for s in raw_s: all_styles.update([t.strip() for t in s.split(',')])
+    for s in raw_s: 
+        tags = [t.strip() for t in s.split(',')]
+        all_styles.update(tags)
     all_styles = sorted(list(all_styles))
 except:
     all_cats = []
     all_styles = []
 
-@st.dialog("✏️ 编辑", width="large")
+@st.dialog("✏️ 编辑信息", width="large")
 def edit_dialog(item):
     new_title = st.text_input("标题", value=item['title'])
     c1, c2 = st.columns(2)
     with c1:
-        cat = item['category']
-        cat_sel = st.selectbox("分类", all_cats, index=all_cats.index(cat) if cat in all_cats else 0)
-        cat_new = st.text_input("或新建分类")
+        cur_cat = item['category']
+        idx = all_cats.index(cur_cat) if cur_cat in all_cats else 0
+        cat_sel = st.selectbox("分类 (已有)", all_cats, index=idx)
+        cat_new = st.text_input("或：新建分类")
     with c2:
-        cur_sty = [s.strip() for s in item.get('style','').split(',') if s.strip()]
-        def_sty = [s for s in cur_sty if s in all_styles]
-        sty_sel = st.multiselect("风格", all_styles, default=def_sty)
-        sty_new = st.text_input("或新建风格")
-    prompt = st.text_area("提示词", value=item['prompt'], height=200)
+        cur_style = item.get('style', '')
+        cur_list = [s.strip() for s in cur_style.split(',')] if cur_style else []
+        def_style = [s for s in cur_list if s in all_styles]
+        style_sel = st.multiselect("风格 (多选)", all_styles, default=def_style)
+        style_new = st.text_input("或：新建风格")
+
+    new_prompt = st.text_area("提示词", value=item['prompt'], height=200)
     
     if st.button("💾 保存", type="primary", use_container_width=True):
         f_cat = cat_new.strip() if cat_new.strip() else cat_sel
-        f_sty = sty_sel.copy()
-        if sty_new: f_sty.extend([t.strip() for t in sty_new.replace('，',',').split(',') if t.strip()])
+        f_styles = style_sel.copy()
+        if style_new: f_styles.extend([t.strip() for t in style_new.replace('，', ',').split(',') if t.strip()])
+        f_style_str = ", ".join(list(set(f_styles)))
         
         supabase.table("gallery").update({
-            "title": new_title, "category": f_cat, "style": ", ".join(list(set(f_sty))), "prompt": prompt
+            "title": new_title, "category": f_cat, "style": f_style_str, "prompt": new_prompt
         }).eq("id", item['id']).execute()
         st.rerun()
 
-@st.dialog("🔍 详情", width="large")
+@st.dialog("🔍 作品详情", width="large")
 def view_dialog(item):
-    c1, c2 = st.columns([1.5, 1])
-    with c1: 
-        if item['image_url']: st.image(item['image_url'])
-        else: st.info("无图")
-    with c2:
+    col_img, col_info = st.columns([1.8, 1])
+    with col_img:
+        if item['image_url']: st.image(item['image_url'], use_container_width=True)
+        else: st.info("无图片")
+    with col_info:
         st.subheader(item['title'])
-        st.caption(f"📂 {item['category']} | {item['style']}")
+        st.caption(f"📂 {item['category']}")
+        if item['style']:
+            st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider()
+        st.caption("提示词:")
         st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏 ---
+# --- 5. 侧边栏 (完全恢复为详细版) ---
 with st.sidebar:
-    st.header("📤 新增")
-    new_t = st.text_input("标题 (必填)")
-    st.caption("分类")
-    c_mode = st.radio("C", ["选", "新"], horizontal=True, label_visibility="collapsed")
-    fin_cat = st.selectbox("C", all_cats) if c_mode=="选" else st.text_input("C").strip() or "默认"
-    st.caption("风格")
-    sel_sty = st.multiselect("S", all_styles)
-    new_sty = st.text_input("新S", placeholder="逗号隔开")
-    fin_sty_l = sel_sty + [t.strip() for t in new_sty.replace('，',',').split(',') if t.strip()]
-    
-    p_txt = st.text_area("Prompt", height=100)
-    up_file = st.file_uploader("Img", type=['jpg','png','webp'])
-    
-    if st.button("🚀 提交", type="primary", use_container_width=True):
-        if new_t:
-            url = None
-            if up_file:
-                b = up_file.getvalue()
-                ext = up_file.name.split('.')[-1]
-                name = f"img_{int(time.time())}.{ext}"
-                supabase.storage.from_("images").upload(name, b, {"content-type": f"image/{ext}"})
-                url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{name}"
-            
-            supabase.table("gallery").insert({
-                "title": new_t, "category": fin_cat, "style": ", ".join(list(set(fin_sty_l))),
-                "prompt": p_txt, "image_url": url, "is_pinned": False, "is_favorite": False
-            }).execute()
-            st.rerun()
+    st.header("📤 新增资产")
+    new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
 
-# --- 6. 主页 ---
-st.title("🌌 资产库")
+    st.write("📂 **分类**")
+    cat_mode = st.radio("分类方式", ["已有", "新建"], horizontal=True, label_visibility="collapsed")
+    if cat_mode == "已有":
+        final_category = st.selectbox("已有分类", all_cats if all_cats else ["默认分类"], label_visibility="collapsed")
+    else:
+        final_category = st.text_input("输入新分类", label_visibility="collapsed").strip()
+        if not final_category: final_category = "默认分类"
+
+    st.write("🎨 **风格**")
+    selected_styles = st.multiselect("选择风格", all_styles, placeholder="选择标签...")
+    new_style_input = st.text_input("新增风格", placeholder="输入新标签，逗号隔开")
+    
+    final_style_list = selected_styles.copy()
+    if new_style_input:
+        manual_tags = [t.strip() for t in new_style_input.replace('，', ',').split(',') if t.strip()]
+        final_style_list.extend(manual_tags)
+    final_style_str = ", ".join(list(set(final_style_list)))
+
+    prompt_text = st.text_area("提示词 (Prompt)", height=150)
+    uploaded_file = st.file_uploader("上传图片 (可选)", type=['jpg', 'png', 'jpeg', 'webp'])
+
+    if st.button("🚀 提交保存", type="primary", use_container_width=True):
+        if new_title:
+            with st.spinner("处理中..."):
+                img_url = None
+                if uploaded_file:
+                    file_bytes = uploaded_file.getvalue()
+                    file_ext = uploaded_file.name.split('.')[-1]
+                    file_name = f"img_{int(time.time())}.{file_ext}"
+                    supabase.storage.from_("images").upload(file_name, file_bytes, {"content-type": f"image/{file_ext}"})
+                    img_url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{file_name}"
+
+                data = {
+                    "title": new_title, "category": final_category, "style": final_style_str,
+                    "prompt": prompt_text, "image_url": img_url,
+                    "is_pinned": False, "is_favorite": False
+                }
+                supabase.table("gallery").insert(data).execute()
+                st.success("✅ 保存成功！")
+                time.sleep(1)
+                st.rerun()
+        else:
+            st.error("⚠️ 标题不能为空")
+
+# --- 6. 主界面 ---
+st.title("🌌 我的 AI 资产库")
+
 with st.container(border=True):
-    c1, c2, c3 = st.columns([2,2,1])
-    f_cat = c1.multiselect("分类", all_cats)
-    f_sty = c2.multiselect("风格", all_styles)
-    cols = c3.slider("列", 2, 6, 4)
+    f1, f2, f3 = st.columns([2, 2, 1])
+    with f1: filter_cats = st.multiselect("📂 筛选分类", all_cats, placeholder="全部分类")
+    with f2: filter_styles = st.multiselect("🎨 筛选风格", all_styles, placeholder="全部风格")
+    with f3: layout_cols = st.slider("列数", 2, 6, 4)
 
-# --- 卡片渲染 ---
-def render(item, txt_only=False, k=""):
+# --- 核心卡片渲染 ---
+def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
-        # 1. 图
-        if not txt_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
-        elif txt_only: st.info(item['prompt'][:50]+"..." if item['prompt'] else "...")
         
-        # 2. 标题
-        st.markdown(f"#### {item.get('title','NO NAME')}")
-        
-        # 3. 标签
-        tags = f"{item['category']}"
-        if item['style']: tags += f" | {item['style']}"
-        st.caption(tags[:30]+"..." if len(tags)>30 else tags)
+        # 1. 图片
+        if not is_text_only and item['image_url']:
+            st.image(item['image_url'], use_container_width=True)
+        elif is_text_only:
+            st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 4. 中间按钮 (View, Pin, Fav) - 紧贴标签下方
-        # 这里的 gap="small" 是 Streamlit 1.25+ 特性，配合 CSS 压缩间距
-        b1, b2, b3, space = st.columns([1, 1, 1, 2], gap="small")
+        # 2. 标题
+        st.markdown(f"#### {item.get('title', '未命名')}")
+
+        # 3. 标签
+        tags = f"📂 {item['category']}"
+        if item.get('style'): tags += f" | {item['style']}"
+        st.caption(tags if len(tags)<40 else tags[:40]+"...")
+
+        # 4. 中间工具栏：View | Pin | Fav (严格修正版)
+        # 用 gap="small" 压缩间距，用 columns([1,1,1,3]) 布局
+        b1, b2, b3, space = st.columns([1, 1, 1, 3], gap="small")
+        
+        # 加上 icon-btn 类，确保正方形居中
         with b1:
-            if st.button("👁️", key=f"v{item['id']}{k}", help="查看"): view_dialog(item)
+            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
+            if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="查看"): view_dialog(item)
+            st.markdown('</div>', unsafe_allow_html=True)
         with b2:
+            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             p = "📌" if item['is_pinned'] else "📍"
-            if st.button(p, key=f"p{item['id']}{k}"): 
+            if st.button(p, key=f"p_{item['id']}_{key_suffix}", help="置顶"): 
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute()
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
         with b3:
+            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             f = "❤️" if item['is_favorite'] else "🤍"
-            if st.button(f, key=f"f{item['id']}{k}"):
+            if st.button(f, key=f"f_{item['id']}_{key_suffix}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        # 5. 底部 (提示词 & 菜单)
+        # 5. 底部按钮
         st.markdown("---") 
         w1, w2 = st.columns([4, 1], gap="small")
+        
         with w1:
-            st.markdown('<div class="bottom-wide">', unsafe_allow_html=True)
-            with st.popover(f"📄 查看提示词", use_container_width=True): st.code(item['prompt'], language=None)
+            st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
+            with st.popover("📄 查看提示词", use_container_width=True):
+                 st.code(item['prompt'], language=None)
             st.markdown('</div>', unsafe_allow_html=True)
+            
         with w2:
-            st.markdown('<div class="bottom-menu">', unsafe_allow_html=True)
+            st.markdown('<div class="menu-btn">', unsafe_allow_html=True)
             with st.popover("⋮", use_container_width=True):
-                if st.button("✏️ 编辑", key=f"e{item['id']}{k}"): edit_dialog(item)
-                if st.button("🗑️ 删除", key=f"d{item['id']}{k}", type="primary"):
+                if st.button("✏️ 编辑", key=f"e_{item['id']}_{key_suffix}"):
+                    edit_dialog(item)
+                if st.button("🗑️ 删除", key=f"d_{item['id']}_{key_suffix}", type="primary"):
                     supabase.table("gallery").delete().eq("id", item['id']).execute()
+                    if item['image_url']:
+                        try:
+                            fname = item['image_url'].split('/')[-1]
+                            supabase.storage.from_("images").remove([fname])
+                        except: pass
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 列表 ---
+# --- 列表与展示 ---
 raw = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True).execute().data
-data = []
+filtered = []
 for i in raw:
-    if f_cat and i['category'] not in f_cat: continue
-    if f_sty and not set(f_sty).intersection(set(i.get('style','').split(','))): continue
-    data.append(i)
+    if filter_cats and i['category'] not in filter_cats: continue
+    if filter_styles:
+        if not set(filter_styles).intersection(set([s.strip() for s in i.get('style','').split(',')])): continue
+    filtered.append(i)
 
-t1, t2, t3 = st.tabs(["图库", "文本", "收藏"])
+t1, t2, t3 = st.tabs(["🖼️ 灵感图库", "📝 纯提示词", "⭐ 收藏"])
+
 with t1:
-    cur = [x for x in data if x['image_url']]
-    c = st.columns(cols)
-    for i, x in enumerate(cur): 
-        with c[i%cols]: render(x, False, "i")
+    d = [x for x in filtered if x['image_url']]
+    if not d: st.info("空")
+    else:
+        cols = st.columns(layout_cols)
+        for idx, item in enumerate(d):
+            with cols[idx % layout_cols]: render_card(item, False, "img")
+
 with t2:
-    cur = [x for x in data if not x['image_url']]
-    c = st.columns(cols)
-    for i, x in enumerate(cur): 
-        with c[i%cols]: render(x, True, "t")
+    d = [x for x in filtered if not x['image_url']]
+    if not d: st.info("空")
+    else:
+        cols = st.columns(layout_cols)
+        for idx, item in enumerate(d):
+            with cols[idx % layout_cols]: render_card(item, True, "txt")
+
 with t3:
-    cur = [x for x in data if x['is_favorite']]
-    c = st.columns(cols)
-    for i, x in enumerate(cur): 
-        with c[i%cols]: render(x, not x['image_url'], "f")
+    d = [x for x in filtered if x['is_favorite']]
+    if not d: st.info("空")
+    else:
+        cols = st.columns(layout_cols)
+        for idx, item in enumerate(d):
+            with cols[idx % layout_cols]: render_card(item, (item['image_url'] is None), "fav")

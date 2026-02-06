@@ -5,7 +5,7 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS (新思路：Gap Control + HTML布局) ---
+# --- CSS (新思路：负空间重叠法) ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
@@ -13,68 +13,74 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 新思路：核弹级去间隙 (Flex Gap Control) */
+    /* 核心修复：按钮 Emoji 绝对居中 */
     /* ================================================================= */
-
-    /* 1. 找到卡片边框容器内部的垂直堆叠容器 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] {
-        gap: 0px !important; /* 【核心代码】强制消除组件之间的默认间距 */
-    }
-
-    /* 2. 只有图片下面需要留一点点空隙 */
-    div[data-testid="stImage"] {
-        margin-bottom: 8px !important;
-    }
-
-    /* 3. 中间按钮组 (View, Pin, Fav) 容器 */
-    /* 因为上面设了 gap:0，这里需要给它自己一点点呼吸空间，但绝不多 */
-    .icon-btn-container {
-        margin-top: 4px !important;
-        margin-bottom: 8px !important;
-    }
-
-    /* ================================================================= */
-    /* 按钮样式 (保持正方形 & 绝对居中) */
-    /* ================================================================= */
-    .icon-btn button {
-        aspect-ratio: 1 / 1 !important;
-        width: 100% !important;
-        height: auto !important;
-        padding: 0 !important;
-        margin: 0 !important;
+    
+    /* 针对卡片内的按钮 (stVerticalBlockBorderWrapper) */
+    div[data-testid="stVerticalBlockBorderWrapper"] button {
         border: 1px solid #f0f2f6 !important;
         border-radius: 6px !important;
-        background-color: white !important;
+        padding: 0px !important;
+        margin: 0px !important;
+        line-height: 1 !important; 
+        min-height: 36px !important;
+        height: auto !important;
+        
+        /* Flex 居中大法 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        
+        box-shadow: 0 1px 1px rgba(0,0,0,0.05);
     }
-    .icon-btn button p {
+    
+    /* 修复 Emoji 的位置：微调 translateY 让它在视觉上绝对居中 */
+    div[data-testid="stVerticalBlockBorderWrapper"] button p {
+        font-size: 1.2rem !important;
         margin: 0 !important;
         padding: 0 !important;
-        line-height: 1 !important;
-        font-size: 1.1rem !important;
-        transform: translateY(-2px); /* 视觉绝对居中 */
+        transform: translateY(-2px) !important; /* 关键：往上提2px，抵消文字基线偏移 */
     }
-    .icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
-    /* 底部大按钮 */
+    /* 悬停效果 */
+    div[data-testid="stVerticalBlockBorderWrapper"] button:hover {
+        border-color: #ff4b4b !important;
+        color: #ff4b4b !important;
+        background-color: #fff5f5 !important;
+    }
+
+    /* ================================================================= */
+    /* 核心修复：消除垂直间隙 (负空间重叠) */
+    /* ================================================================= */
+
+    /* 标题和标签的容器 */
+    .card-header {
+        margin-bottom: -18px !important; /* 【核弹级代码】强行吃掉下面 18px 的间距 */
+        position: relative;
+        z-index: 1; /* 确保不被遮挡 */
+    }
+
+    /* 按钮组容器微调 */
+    .icon-bar {
+        margin-top: 0px !important;
+        margin-bottom: -10px !important; /* 同样吃掉下面的间距 */
+    }
+
+    /* 底部按钮修正 */
     .wide-btn button {
-        width: 100% !important;
-        min-height: 38px !important;
-        background-color: #f8f9fa !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 6px !important;
-        color: #333 !important;
-        justify-content: flex-start !important;
+        justify-content: flex-start !important; /* 左对齐 */
         padding-left: 10px !important;
+        background-color: #f8f9fa !important;
+        font-size: 0.9rem !important;
     }
-    .menu-btn button { aspect-ratio: 1 / 1 !important; width: 100% !important; min-height: 38px !important; border-radius: 6px !important; }
 
-    /* 隐藏 Popover 箭头 & Tag 样式 */
+    /* 通用清理 */
+    h4 { margin: 0 !important; padding: 0 !important; }
+    div[data-testid="stCaptionContainer"] { margin: 0 !important; padding: 0 !important; }
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
     img { max-height: 600px; object-fit: contain; }
+    hr { margin: 10px 0 5px 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -144,7 +150,7 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider(); st.caption("提示词:"); st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏 ---
+# --- 5. 侧边栏 (完整代码保持不变) ---
 with st.sidebar:
     st.header("📤 新增资产")
     new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
@@ -183,48 +189,40 @@ with st.container(border=True):
 # --- 核心渲染 ---
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
-        
         # 1. 图片
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 标题 + 标签 (【关键修改】合并为一个 HTML 块，彻底消除两者之间的间距)
+        # 2. 标题 + 标签 (HTML合并版 + 负Margin类)
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
         
-        # 使用 HTML 渲染，行高设紧凑，Margin 设为 0
+        # 这里的 .card-header 类在CSS里设置了 margin-bottom: -18px
         st.markdown(f"""
-        <div style="line-height: 1.2; margin-bottom: 0px;">
+        <div class="card-header">
             <div style="font-weight: 600; font-size: 1rem; color: #31333F; margin-bottom: 2px;">{item.get('title', '未命名')}</div>
             <div style="font-size: 0.8rem; color: #666;">{tags}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 中间工具栏 (View, Pin, Fav)
-        # 加上 icon-btn-container 类，通过 CSS 给它顶部加一点点间距(4px)，不多不少
-        st.markdown('<div class="icon-btn-container">', unsafe_allow_html=True)
+        # 3. 中间工具栏 (应用 icon-bar 类吃掉下面的间隙)
+        st.markdown('<div class="icon-bar">', unsafe_allow_html=True)
         b1, b2, b3, space = st.columns([1, 1, 1, 3], gap="small")
         with b1:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="查看"): view_dialog(item)
-            st.markdown('</div>', unsafe_allow_html=True)
         with b2:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             p = "📌" if item['is_pinned'] else "📍"
             if st.button(p, key=f"p_{item['id']}_{key_suffix}", help="置顶"): 
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute(); st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
         with b3:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             f = "❤️" if item['is_favorite'] else "🤍"
             if st.button(f, key=f"f_{item['id']}_{key_suffix}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute(); st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. 底部按钮 (分割线由于 gap:0，现在需要手动用 HTML 画一个细线，或者利用 CSS 的 border-top)
-        st.markdown('<div style="border-top: 1px solid #f0f2f6; margin: 8px 0;"></div>', unsafe_allow_html=True)
+        # 4. 底部按钮
+        st.markdown('<hr>', unsafe_allow_html=True)
         
         w1, w2 = st.columns([4, 1], gap="small")
         with w1:

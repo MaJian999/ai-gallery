@@ -3,65 +3,91 @@ from supabase import create_client
 import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="AI 资产库 Ultimate v9", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI 资产库 Ultimate Final", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 样式重构 ---
+# --- CSS 像素级修正 ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
-    
-    /* 2. 顶部小工具栏按钮 (View, Pin, Fav) - 保持正方形 */
-    .toolbar-btn button {
-        aspect-ratio: 1 / 1 !important;
-        width: 100% !important;
-        padding: 0 !important;
-        line-height: 1 !important;
-        min-height: 32px !important; /*稍微小一点，精致*/
-        border-radius: 6px !important;
+
+    /* 2. 核心修复：按钮 Emoji 绝对居中 */
+    /* 针对卡片内部的所有按钮 */
+    div[data-testid="stVerticalBlockBorderWrapper"] button {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 0 !important;           /* 去除内边距 */
+        margin: 0 !important;            /* 去除外边距 */
+        line-height: 1 !important;       /* 行高设为1，防止文字偏下 */
+        padding-bottom: 2px !important;  /* 微调：Emoji视觉重心通常偏高，稍微压低一点点 */
         border: 1px solid #f0f2f6 !important;
+        border-radius: 6px !important;
     }
 
-    /* 3. 底部大按钮 (提示词) - 宽大 */
-    .wide-btn button {
+    /* 3. 中间工具栏 (View, Pin, Fav) 强制正方形 */
+    .mid-toolbar button {
+        aspect-ratio: 1 / 1 !important;
+        min-height: 36px !important;     /* 适中高度 */
+        font-size: 1.1rem !important;
         width: 100% !important;
-        min-height: 40px !important;
-        border: 1px solid #e0e0e0 !important;
-        background-color: #f8f9fa !important;
-        border-radius: 8px !important;
-        color: #31333F !important;
-        font-weight: 500 !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .wide-btn button:hover {
+    
+    /* 4. 底部大按钮 (提示词) */
+    .bottom-wide button {
+        width: 100% !important;
+        min-height: 38px !important;
+        background-color: #f8f9fa !important;
+        font-size: 0.95rem !important;
+        border-color: #e0e0e0 !important;
+    }
+    
+    /* 5. 底部菜单按钮 (⋮) */
+    .bottom-menu button {
+        aspect-ratio: 1 / 1 !important;
+        min-height: 38px !important;
+        font-weight: bold !important;
+    }
+
+    /* 悬停效果 */
+    button:hover {
         border-color: #ff4b4b !important;
         color: #ff4b4b !important;
+        background-color: #fff5f5 !important;
     }
 
-    /* 4. 底部菜单按钮 (⋮) - 正方形 */
-    .menu-btn button {
-        aspect-ratio: 1 / 1 !important;
-        width: 100% !important;
-        min-height: 40px !important;
-        border-radius: 8px !important;
-    }
-
-    /* 5. 弹窗内图片限制高度 */
-    /* 这是一个比较暴力的限制，防止图片太长 */
+    /* 6. 弹窗优化：恢复大宽幅 */
     img {
-        max-height: 600px;
-        object-fit: contain;
+        max-height: 650px; /* 限制高度防止溢出屏幕 */
+        object-fit: contain; /* 保持比例 */
+    }
+
+    /* 7. 压缩垂直间隙 */
+    h4 {
+        margin-bottom: 2px !important;
+        padding-bottom: 0 !important;
+        font-size: 1rem !important;
+    }
+    .element-container {
+        margin-bottom: 5px !important; /* 减少组件间距 */
+    }
+    div[data-testid="stCaptionContainer"] {
+        margin-bottom: 8px !important;
+        line-height: 1.2 !important;
     }
     
-    /* 6. 隐藏 Popover 箭头 */
+    /* 8. 隐藏 Popover 箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     div[data-testid="stPopover"] > button > div { margin: 0 !important; padding: 0 !important; }
-
+    
     /* Tag 样式 */
     .stMultiSelect span {
-        background-color: #e8f0fe;
-        color: #1967d2;
-        border-radius: 4px;
+        background-color: #e8f0fe; 
+        color: #1967d2; 
+        border-radius: 4px; 
         font-size: 0.85rem;
     }
 </style>
@@ -98,11 +124,10 @@ def init_connection():
 check_login()
 supabase = init_connection()
 
-# --- 全局数据预取 ---
+# --- 全局数据 ---
 try:
     all_data_preview = supabase.table("gallery").select("category, style").execute().data
     all_cats = sorted(list(set([i['category'] for i in all_data_preview if i.get('category')])))
-    
     raw_styles = [i['style'] for i in all_data_preview if i.get('style')]
     all_styles = set()
     for s in raw_styles:
@@ -116,10 +141,9 @@ except:
 # --- 4. 弹窗功能 ---
 
 # A. 编辑弹窗
-@st.dialog("✏️ 编辑信息")
+@st.dialog("✏️ 编辑信息", width="large")
 def edit_dialog(item, all_cats, all_styles):
     new_title = st.text_input("标题", value=item['title'])
-    
     c1, c2 = st.columns(2)
     with c1:
         cur_cat = item['category']
@@ -146,12 +170,11 @@ def edit_dialog(item, all_cats, all_styles):
         }).eq("id", item['id']).execute()
         st.rerun()
 
-# B. 查看详情弹窗 (缩小版)
-# 去掉了 width="large"，使用默认宽度，防止太宽太高
-@st.dialog("🔍 作品详情")
+# B. 查看详情弹窗 (恢复 width="large")
+@st.dialog("🔍 作品详情", width="large")
 def view_dialog(item):
-    # 使用 1:1 比例，防止图片列太宽
-    col_img, col_info = st.columns([1, 1])
+    # 调整比例，给图片更多空间
+    col_img, col_info = st.columns([1.8, 1])
     
     with col_img:
         if item['image_url']:
@@ -166,10 +189,10 @@ def view_dialog(item):
             st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         
         st.divider()
-        st.caption("提示词 (点击复制图标):")
+        st.markdown("**提示词**")
         st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏：录入 ---
+# --- 5. 侧边栏 ---
 with st.sidebar:
     st.header("📤 新增资产")
     new_title = st.text_input("标题 (必填)", placeholder="例如: 赛博朋克女孩v1")
@@ -226,7 +249,7 @@ with st.container(border=True):
     with f2: filter_styles = st.multiselect("🎨 筛选风格", all_styles)
     with f3: layout_cols = st.slider("列数", 2, 6, 4)
 
-# --- 核心渲染逻辑 (优化布局) ---
+# --- 核心渲染逻辑 ---
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
         
@@ -236,19 +259,27 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         elif is_text_only:
             st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # [层级2] 工具栏：View | Pin | Fav (靠左排列)
-        # 布局：3个小按钮 + 空白
-        t1, t2, t3, t4 = st.columns([1, 1, 1, 3])
+        # [层级2] 标题
+        st.markdown(f"#### {item.get('title', '未命名')}")
+
+        # [层级3] 分类与风格
+        tags = f"📂 {item['category']}"
+        if item.get('style'): tags += f" | 🎨 {item['style']}"
+        st.caption(tags if len(tags)<40 else tags[:40]+"...")
+
+        # [层级4] 中间工具栏：View | Pin | Fav
+        # 移到了风格下面，并且使用 columns(5) 布局，前3个放按钮，后2个留空
+        # 加上 mid-toolbar class 确保正方形
+        t1, t2, t3, t_blank = st.columns([1, 1, 1, 3])
         
-        # 引入 CSS class 限制它们的大小
         with t1:
-            st.markdown('<div class="toolbar-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="mid-toolbar">', unsafe_allow_html=True)
             if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="查看详情"):
                 view_dialog(item)
             st.markdown('</div>', unsafe_allow_html=True)
         
         with t2:
-            st.markdown('<div class="toolbar-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="mid-toolbar">', unsafe_allow_html=True)
             pin_icon = "📌" if item['is_pinned'] else "📍"
             if st.button(pin_icon, key=f"p_{item['id']}_{key_suffix}", help="置顶"):
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute()
@@ -256,32 +287,27 @@ def render_card(item, is_text_only=False, key_suffix="main"):
             st.markdown('</div>', unsafe_allow_html=True)
 
         with t3:
-            st.markdown('<div class="toolbar-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="mid-toolbar">', unsafe_allow_html=True)
             fav_icon = "❤️" if item['is_favorite'] else "🤍"
             if st.button(fav_icon, key=f"f_{item['id']}_{key_suffix}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # [层级3] 信息区
-        st.markdown(f"**{item.get('title', '未命名')}**")
-        tags = f"📂 {item['category']}"
-        if item.get('style'): tags += f" | {item['style']}"
-        st.caption(tags if len(tags)<35 else tags[:35]+"...")
-
-        # [层级4] 底部大按钮区
-        # 布局：[ 提示词 (80%) ] [ ⋮ (20%) ]
+        # [层级5] 底部大按钮区
+        # 布局：[ 提示词 (4份) ] [ ⋮ (1份) ]
+        st.markdown("---") # 分割线，更清晰
         b1, b2 = st.columns([4, 1])
         
         with b1:
-            st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="bottom-wide">', unsafe_allow_html=True)
             # Popover 模拟成一个宽按钮
             with st.popover("📄 查看提示词", use_container_width=True):
                 st.code(item['prompt'], language=None)
             st.markdown('</div>', unsafe_allow_html=True)
             
         with b2:
-            st.markdown('<div class="menu-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="bottom-menu">', unsafe_allow_html=True)
             with st.popover("⋮", use_container_width=True):
                 if st.button("✏️ 编辑", key=f"e_{item['id']}_{key_suffix}"):
                     edit_dialog(item, all_cats, all_styles)

@@ -13,22 +13,24 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 核心修复：压缩全屏按钮与下方的间隙 */
+    /* 核心修复：按钮样式与间距 */
     /* ================================================================= */
     
-    /* 1. 卡片内边距 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        padding: 10px !important;
-    }
-
-    /* 2. 全宽“全屏查看”按钮样式 */
-    /* 我们通过特定属性定位这个全宽按钮 */
+    /* 全宽“全屏查看”按钮 - 样式微调 */
     div[data-testid="stButton"] button {
+        width: 100%;
         border-radius: 6px !important;
         font-weight: 500 !important;
+        background-color: #f0f2f6 !important;
+        border: 1px solid #e0e0e0 !important;
+        color: #333 !important;
+        min-height: 32px !important;
+        margin-top: 0px !important; /* 自身不带边距，完全靠垫片控制 */
+        margin-bottom: 0px !important;
     }
+    div[data-testid="stButton"] button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
     
-    /* 3. 底部四个正方形图标 */
+    /* 底部四个正方形图标 */
     .square-icon-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
@@ -42,26 +44,30 @@ st.markdown("""
         border-radius: 6px !important;
         background: white !important;
     }
-    .square-icon-btn button p { font-size: 1.2rem !important; margin: 0 !important; transform: translateY(-2px); }
+    .square-icon-btn button p { 
+        font-size: 1.2rem !important; 
+        margin: 0 !important; 
+        padding: 0 !important;
+        transform: translateY(-2px); /* Emoji 视觉居中 */
+    }
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
     /* ================================================================= */
-    /* 弹窗与图片优化 */
+    /* 杂项与去间隙 */
     /* ================================================================= */
     
-    /* 弹窗图片高度限制 */
-    img {
-        max-height: 70vh !important;
-        object-fit: contain;
-        width: 100%;
-        display: block;
-    }
+    /* 卡片内边距 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 10px !important; }
     
-    /* 去除组件默认间隙 */
+    /* 消除 Streamlit 默认组件间隙 */
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
+    
+    /* 弹窗图片限制 */
+    img { max-height: 70vh !important; object-fit: contain; width: 100%; display: block; }
     
     /* 隐藏 Popover 箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
+    /* 修复 Popover 触发按钮样式 */
     div[data-testid="stPopover"] > button {
          aspect-ratio: 1 / 1 !important;
          width: 100% !important;
@@ -192,7 +198,7 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 信息 (HTML, 紧贴图片)
+        # 2. 信息 (HTML)
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
@@ -203,14 +209,17 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 全屏查看按钮 (margin-bottom 由下面的 spacer 负责吃掉)
+        # 【核心技巧】 上方物理垫片 (控制按钮和上面文字的距离)
+        # 增加 10px 的高度，让按钮不要贴着字
+        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+
+        # 3. 全屏查看按钮
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
 
-        # 【核心技巧】负边距垫片 (Negative Spacer)
-        # 这一行 HTML 专门用来吃掉 Streamlit 强制插入的间距
-        # margin-top: -12px 可以把下面的按钮组强行拉上来
-        st.markdown('<div style="height: 0px; margin-top: -12px;"></div>', unsafe_allow_html=True)
+        # 【核心技巧】 下方物理垫片 (控制按钮和下面图标的距离)
+        # 使用 -20px 的负边距，强行吃掉 Streamlit 默认的 padding，把下面的图标拉上来
+        st.markdown('<div style="margin-top: -20px;"></div>', unsafe_allow_html=True)
 
         # 4. 底部 4 个图标 (Pin, Fav, Prompt, Menu)
         b1, b2, b3, b4 = st.columns(4, gap="small")

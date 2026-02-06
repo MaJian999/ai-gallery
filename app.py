@@ -5,7 +5,7 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 样式 ---
+# --- CSS 终极修正 (无Hack版) ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
@@ -13,33 +13,54 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 核心修复：极限压缩全屏按钮与下方图标的间隙 */
+    /* 核心布局修复：从容器根源控制间距 */
     /* ================================================================= */
-    
-    /* 1. 卡片内边距 */
+
+    /* 1. 卡片边框内边距：设为 12px，视觉舒适 */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        padding: 10px !important;
+        padding: 12px !important;
     }
 
-    /* 2. 全宽“全屏查看”按钮 */
-    div[data-testid="stButton"] button {
+    /* 2. 【关键】强制消除卡片内部所有组件的默认间隙 */
+    /* 之前的代码没能彻底覆盖这里，导致需要用负边距去补救。现在直接归零。 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] {
+        gap: 0px !important; 
+    }
+
+    /* ================================================================= */
+    /* 组件具体样式与微调 */
+    /* ================================================================= */
+
+    /* 1. 全宽“全屏查看”按钮 */
+    .full-view-btn button {
         width: 100%;
+        margin-top: 8px !important;    /* 离上面文字 8px */
+        margin-bottom: 4px !important; /* 【核心】离下面图标 4px (极小) */
+        min-height: 32px !important;
+        height: 32px !important;
         border-radius: 6px !important;
         font-weight: 500 !important;
         background-color: #f0f2f6 !important;
         border: 1px solid #e0e0e0 !important;
         color: #333 !important;
-        min-height: 32px !important;
-        height: 32px !important;
-        margin: 0px !important; /* 自身无边距 */
+        line-height: 1 !important;
     }
-    div[data-testid="stButton"] button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
-    
-    /* 3. 底部四个正方形图标 - 强制去除顶部所有间隙 */
+    .full-view-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
+
+    /* 2. 底部四个图标容器 (stHorizontalBlock) */
+    /* 强制去除上下的多余留白，确保不撑大底部 */
+    div[data-testid="stHorizontalBlock"] {
+        margin-top: 0px !important;
+        margin-bottom: 0px !important;
+        padding: 0px !important;
+        gap: 6px !important; /* 图标之间的横向间距 */
+    }
+
+    /* 3. 底部四个正方形图标本体 */
     .square-icon-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
-        min-height: 38px !important;
+        min-height: 36px !important;
         padding: 0 !important;
         margin: 0 !important;
         display: flex !important;
@@ -49,38 +70,22 @@ st.markdown("""
         border-radius: 6px !important;
         background: white !important;
     }
-    .square-icon-btn button p { 
-        font-size: 1.2rem !important; 
-        margin: 0 !important; 
-        padding: 0 !important;
-        transform: translateY(-2px); 
-    }
+    .square-icon-btn button p { font-size: 1.2rem !important; margin: 0 !important; transform: translateY(-2px); }
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
     /* ================================================================= */
-    /* 弹窗与布局优化 */
+    /* 杂项 */
     /* ================================================================= */
     
-    /* 弹窗图片限制 */
     img { max-height: 70vh !important; object-fit: contain; width: 100%; display: block; }
-    
-    /* 消除垂直块之间的间隙 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
-    
-    /* 隐藏 Popover 箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
-    
     /* 修复 Popover 触发按钮 */
     div[data-testid="stPopover"] > button {
-         aspect-ratio: 1 / 1 !important;
-         width: 100% !important;
-         min-height: 38px !important;
+         aspect-ratio: 1 / 1 !important; width: 100% !important; min-height: 36px !important;
          display: flex !important; align-items: center !important; justify-content: center !important;
-         padding: 0 !important;
-         border: 1px solid #eee !important;
+         padding: 0 !important; border: 1px solid #eee !important;
     }
     div[data-testid="stPopover"] > button p { margin: 0 !important; font-size: 1.2rem !important; transform: translateY(-2px); }
-
     .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
 </style>
 """, unsafe_allow_html=True)
@@ -201,7 +206,7 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 信息
+        # 2. 信息 (HTML)
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
@@ -212,19 +217,13 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 【技巧1】上方垫片：12px (隔开文字和按钮)
-        st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
-
-        # 3. 全屏查看按钮
+        # 3. 全屏查看按钮 (无垫片，靠 CSS Margin 控制)
+        st.markdown('<div class="full-view-btn">', unsafe_allow_html=True)
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # 【技巧2】下方垫片：核弹级 -35px
-        # Streamlit 的 Columns 默认有巨大的顶部 Margin/Padding，
-        # 普通的 -10px, -20px 根本拉不动，这里直接设 -35px
-        st.markdown('<div style="margin-top: -35px;"></div>', unsafe_allow_html=True)
-
-        # 4. 底部 4 个图标
+        # 4. 底部 4 个图标 (无垫片，靠 CSS Gap=0 控制)
         b1, b2, b3, b4 = st.columns(4, gap="small")
         
         with b1:

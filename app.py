@@ -5,18 +5,46 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 修复 (只修按钮对齐，不动其他) ---
+# --- CSS 暴力去间隙版 ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
 
-    /* 2. 核心修复：中间三个小按钮 (View, Pin, Fav) 的绝对居中 */
+    /* ================================================================= */
+    /* 新思路：使用负边距 (Negative Margin) 强制压缩垂直空间 */
+    /* ================================================================= */
+
+    /* 1. 标题 (h4) - 紧贴图片 */
+    h4 {
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
+        padding-top: 5px !important;
+        font-size: 1rem !important;
+        line-height: 1.2 !important;
+    }
+
+    /* 2. 标签 (Caption) - 紧贴标题 */
+    div[data-testid="stCaptionContainer"] {
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
+        margin-top: 0px !important;
+        line-height: 1 !important;
+    }
+
+    /* 3. 中间三个按钮 (View, Pin, Fav) 的容器修正 */
+    /* 这里的核心是用 margin-top: -5px 把这一行硬提上去 */
+    .icon-row {
+        margin-top: -10px !important; 
+        margin-bottom: -10px !important;
+    }
+
+    /* 4. 按钮本体 - 绝对居中 + 紧凑 */
     .icon-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
-        min-height: 36px !important;
+        min-height: 32px !important; /*稍微改小一点点，显得更精致*/
         height: auto !important;
         padding: 0 !important;
         margin: 0 !important;
@@ -26,29 +54,29 @@ st.markdown("""
         border: 1px solid #f0f2f6 !important;
         border-radius: 6px !important;
         background-color: white !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        box-shadow: 0 1px 1px rgba(0,0,0,0.05);
     }
     
-    /* 强制去除 Emoji 此时可能带有的 margin */
+    /* 强制 Emoji 居中 */
     .icon-btn button p {
         margin: 0 !important;
         padding: 0 !important;
         line-height: 1 !important;
         font-size: 1.1rem !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        transform: translateY(-2px); /* 视觉微调：往上提一点点使其视觉垂直居中 */
+        transform: translateY(-2px);
     }
 
-    /* 悬停效果 */
-    .icon-btn button:hover {
-        border-color: #ff4b4b !important;
-        background-color: #fff1f1 !important;
-        color: #ff4b4b !important;
+    /* 5. 分割线 - 压缩上下间距 */
+    hr {
+        margin-top: 5px !important;
+        margin-bottom: 5px !important;
+        border-top: 1px solid #f0f2f6 !important;
     }
 
-    /* 3. 底部大按钮 (提示词) */
+    /* ================================================================= */
+    /* 其他样式保持不变 */
+    /* ================================================================= */
+
     .wide-btn button {
         width: 100% !important;
         min-height: 38px !important;
@@ -56,11 +84,10 @@ st.markdown("""
         border: 1px solid #e0e0e0 !important;
         border-radius: 6px !important;
         color: #333 !important;
-        justify-content: flex-start !important; /* 文字左对齐 */
+        justify-content: flex-start !important;
         padding-left: 10px !important;
     }
-
-    /* 4. 底部菜单按钮 (⋮) */
+    
     .menu-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
@@ -68,34 +95,10 @@ st.markdown("""
         border-radius: 6px !important;
     }
 
-    /* 5. 间隙微调：减少标题和标签之间的留白 */
-    h4 {
-        margin-bottom: 2px !important;
-        padding-bottom: 0 !important;
-    }
-    div[data-testid="stCaptionContainer"] {
-        margin-bottom: 8px !important;
-    }
-    hr {
-        margin: 8px 0 !important;
-    }
-
-    /* 隐藏 Popover 箭头 */
+    .icon-btn button:hover { border-color: #ff4b4b !important; background-color: #fff1f1 !important; color: #ff4b4b !important; }
     div[data-testid="stPopover"] > button > svg { display: none !important; }
-    
-    /* Tag 样式 */
-    .stMultiSelect span {
-        background-color: #e8f0fe; 
-        color: #1967d2; 
-        border-radius: 4px; 
-        font-size: 0.85rem;
-    }
-    
-    /* 限制图片高度 */
-    img {
-        max-height: 600px;
-        object-fit: contain;
-    }
+    .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
+    img { max-height: 600px; object-fit: contain; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -188,7 +191,7 @@ def view_dialog(item):
         st.caption("提示词:")
         st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏 (完全恢复为详细版) ---
+# --- 5. 侧边栏 (完整版 - 保持不动) ---
 with st.sidebar:
     st.header("📤 新增资产")
     new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
@@ -264,11 +267,11 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if item.get('style'): tags += f" | {item['style']}"
         st.caption(tags if len(tags)<40 else tags[:40]+"...")
 
-        # 4. 中间工具栏：View | Pin | Fav (严格修正版)
-        # 用 gap="small" 压缩间距，用 columns([1,1,1,3]) 布局
-        b1, b2, b3, space = st.columns([1, 1, 1, 3], gap="small")
+        # 4. 中间工具栏：View | Pin | Fav (高度紧凑版)
+        # 增加一个 div 容器，应用 .icon-row 样式 (margin 负值)
+        st.markdown('<div class="icon-row">', unsafe_allow_html=True)
         
-        # 加上 icon-btn 类，确保正方形居中
+        b1, b2, b3, space = st.columns([1, 1, 1, 3], gap="small")
         with b1:
             st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
             if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="查看"): view_dialog(item)
@@ -287,6 +290,8 @@ def render_card(item, is_text_only=False, key_suffix="main"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True) # end icon-row
 
         # 5. 底部按钮
         st.markdown("---") 

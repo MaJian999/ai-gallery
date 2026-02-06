@@ -5,81 +5,57 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 终极修正 (无Hack版) ---
+# --- CSS 样式 ---
 st.markdown("""
 <style>
-    /* 1. 登录框居中 */
+    /* 1. 基础布局调整 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
+    div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 12px !important; }
+    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0px !important; }
 
-    /* ================================================================= */
-    /* 核心布局修复：从容器根源控制间距 */
-    /* ================================================================= */
-
-    /* 1. 卡片边框内边距：设为 12px，视觉舒适 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        padding: 12px !important;
+    /* 2. 提示词专用样式 (满足你的3点要求) */
+    .prompt-box {
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 12px;
+        font-family: "Source Code Pro", monospace; /* 保持代码风格字体 */
+        font-size: 0.9rem;
+        color: #333;
+        
+        /* 核心要求实现 */
+        white-space: pre-wrap !important; /* 强制换行 */
+        word-wrap: break-word !important; /* 单词太长也断行 */
+        overflow-x: hidden !important;    /* 彻底隐藏横向滚动条 */
+        overflow-y: auto !important;      /* 内容多时显示纵向滚动条 */
+        max-height: 300px !important;     /* 限制高度，超过则滚动 */
+        line-height: 1.5 !important;
     }
 
-    /* 2. 【关键】强制消除卡片内部所有组件的默认间隙 */
-    /* 之前的代码没能彻底覆盖这里，导致需要用负边距去补救。现在直接归零。 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] {
-        gap: 0px !important; 
-    }
-
-    /* ================================================================= */
-    /* 组件具体样式与微调 */
-    /* ================================================================= */
-
-    /* 1. 全宽“全屏查看”按钮 */
+    /* 3. 按钮样式 */
     .full-view-btn button {
         width: 100%;
-        margin-top: 8px !important;    /* 离上面文字 8px */
-        margin-bottom: 4px !important; /* 【核心】离下面图标 4px (极小) */
-        min-height: 32px !important;
-        height: 32px !important;
-        border-radius: 6px !important;
-        font-weight: 500 !important;
-        background-color: #f0f2f6 !important;
-        border: 1px solid #e0e0e0 !important;
-        color: #333 !important;
-        line-height: 1 !important;
+        margin-top: 8px !important; margin-bottom: 4px !important;
+        min-height: 32px !important; height: 32px !important;
+        border-radius: 6px !important; font-weight: 500 !important;
+        background-color: #f0f2f6 !important; border: 1px solid #e0e0e0 !important;
+        color: #333 !important; line-height: 1 !important;
     }
     .full-view-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
 
-    /* 2. 底部四个图标容器 (stHorizontalBlock) */
-    /* 强制去除上下的多余留白，确保不撑大底部 */
-    div[data-testid="stHorizontalBlock"] {
-        margin-top: 0px !important;
-        margin-bottom: 0px !important;
-        padding: 0px !important;
-        gap: 6px !important; /* 图标之间的横向间距 */
-    }
-
-    /* 3. 底部四个正方形图标本体 */
     .square-icon-btn button {
-        aspect-ratio: 1 / 1 !important;
-        width: 100% !important;
-        min-height: 36px !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        border: 1px solid #eee !important;
-        border-radius: 6px !important;
-        background: white !important;
+        aspect-ratio: 1 / 1 !important; width: 100% !important; min-height: 36px !important;
+        padding: 0 !important; margin: 0 !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
+        border: 1px solid #eee !important; border-radius: 6px !important; background: white !important;
     }
     .square-icon-btn button p { font-size: 1.2rem !important; margin: 0 !important; transform: translateY(-2px); }
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
-    /* ================================================================= */
     /* 杂项 */
-    /* ================================================================= */
-    
     img { max-height: 70vh !important; object-fit: contain; width: 100%; display: block; }
     div[data-testid="stPopover"] > button > svg { display: none !important; }
-    /* 修复 Popover 触发按钮 */
     div[data-testid="stPopover"] > button {
          aspect-ratio: 1 / 1 !important; width: 100% !important; min-height: 36px !important;
          display: flex !important; align-items: center !important; justify-content: center !important;
@@ -154,13 +130,21 @@ def view_dialog(item):
         st.subheader(item['title'])
         st.caption(f"📂 {item['category']}")
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
-        st.divider(); st.caption("提示词:"); st.code(item['prompt'], language=None)
+        st.divider()
+        st.markdown("**提示词**")
+        # 详情页也应用新的提示词样式
+        st.markdown(f'<div class="prompt-box">{item["prompt"]}</div>', unsafe_allow_html=True)
 
-@st.dialog("📄 提示词", width="small")
+# 【核心修改】提示词弹窗
+@st.dialog("📄 提示词内容", width="small")
 def prompt_dialog(prompt_text):
-    st.markdown("##### 完整提示词")
-    st.code(prompt_text, language=None)
-    st.caption("右上角图标可复制")
+    # 使用自定义 div 替代 st.code
+    st.markdown(f"""
+    <div class="prompt-box">
+        {prompt_text}
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("提示：请手动选择文本进行复制")
 
 # --- 5. 侧边栏 ---
 with st.sidebar:
@@ -201,12 +185,11 @@ with st.container(border=True):
 # --- 核心渲染 ---
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
-        
         # 1. 图片
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 信息 (HTML)
+        # 2. 信息
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
@@ -217,13 +200,13 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 全屏查看按钮 (无垫片，靠 CSS Margin 控制)
+        # 3. 全屏查看按钮
         st.markdown('<div class="full-view-btn">', unsafe_allow_html=True)
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. 底部 4 个图标 (无垫片，靠 CSS Gap=0 控制)
+        # 4. 底部 4 个图标
         b1, b2, b3, b4 = st.columns(4, gap="small")
         
         with b1:

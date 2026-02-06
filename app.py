@@ -15,14 +15,18 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0px !important; }
 
     /* ==================================================================== */
-    /* NEW: 修复弹窗高度和复制功能的关键 CSS */
+    /* NEW: 针对弹窗 (Dialog) 的样式优化 */
     /* ==================================================================== */
     
-    /* 强制让弹窗 (Dialog) 变大，占据屏幕 90% */
+    /* 【核心修改点】：
+       高度保持 90vh (90%屏幕高度)
+       宽度改为 60vw (60%屏幕宽度)，之前是 95vw 太宽了
+    */
     div[data-testid="stDialog"] div[role="dialog"] {
-        width: 90vw !important;
-        max-width: 90vw !important;
-        height: 90vh !important;
+        width: 60vw !important;        /* <--- 这里改成了 60vw，稍微窄一点 */
+        max-width: 1200px !important;  /* 增加最大宽度限制，防止在大屏上过于夸张 */
+        min-width: 600px !important;   /* 增加最小宽度，防止在小屏上太窄 */
+        height: 90vh !important;       /* 高度保持不变 */
         max-height: 90vh !important;
         display: flex;
         flex-direction: column;
@@ -34,11 +38,11 @@ st.markdown("""
         overflow-y: auto;
     }
 
-    /* 优化 st.code 代码块样式，让它更像文本展示框 */
+    /* 优化 st.code 代码块样式 */
     .stCodeBlock {
         width: 100% !important;
     }
-    /* 强制长文本换行，避免横向滚动 */
+    /* 强制长文本换行 */
     code {
         white-space: pre-wrap !important;
     }
@@ -134,7 +138,7 @@ def edit_dialog(item):
             "title": new_title, "category": f_cat, "style": ", ".join(list(set(f_sty))), "prompt": prompt
         }).eq("id", item['id']).execute(); st.rerun()
 
-@st.dialog("🔍 详情") # 移除 width="large"，让 CSS 控制全屏
+@st.dialog("🔍 详情") 
 def view_dialog(item):
     c1, c2 = st.columns([1.8, 1])
     with c1: 
@@ -146,16 +150,12 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider()
         st.markdown("**提示词 (右上角复制)**")
-        
-        # 【修改】使用 st.code 替代原有的 div
-        # language="text" 显示纯文本
         st.code(item['prompt'], language="text")
 
-# 【核心修改】提示词弹窗
-@st.dialog("📄 提示词内容") # 移除 width="small"，让 CSS 控制全屏
+# 提示词弹窗
+@st.dialog("📄 提示词内容") 
 def prompt_dialog(prompt_text):
-    st.caption("提示：点击下方文本框右上角的 📄 图标即可一键复制。")
-    # 【修改】直接使用 st.code，自带复制按钮
+    st.caption("点击下方文本框右上角的 📄 图标即可一键复制。")
     st.code(prompt_text, language="text")
 
 # --- 5. 侧边栏 ---

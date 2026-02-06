@@ -5,7 +5,7 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS (修复手机竖排 + 平衡间距) ---
+# --- CSS (布局重构 + 强制横排) ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
@@ -13,100 +13,96 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 核心修复 1：手机端强制横排 (禁止换行) */
+    /* 核心修复：底部操作栏 (Pin, Fav, Prompt, Menu) 手机端强制不换行 */
     /* ================================================================= */
     
-    /* 找到卡片内部的水平分栏容器，强制不换行 */
-    div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important; /* 【关键】手机上也不许换行 */
-        gap: 8px !important;          /* 列之间的间距固定为 8px */
-    }
-    
-    /* 强制列宽自适应，防止手机上被撑大 */
-    div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="column"] {
-        min-width: 0 !important;
-        width: auto !important;
-        flex: 1 1 auto !important;
+    /* 找到底部那一排按钮的容器 */
+    .bottom-bar {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important; /* 【核心】禁止换行，死死锁住 */
+        gap: 6px !important;
+        align-items: center !important;
+        margin-top: 8px !important;
+        width: 100% !important;
     }
 
-    /* ================================================================= */
-    /* 核心修复 2：绝对平衡的垂直间距 */
-    /* ================================================================= */
+    /* 按钮容器：让它们按比例缩放 */
+    .btn-wrap-small { flex: 0 0 36px !important; } /* 正方形按钮固定宽度 */
+    .btn-wrap-wide { flex: 1 1 auto !important; }  /* 提示词按钮自动撑满剩余空间 */
 
-    /* 标题和标签容器 */
-    .info-box {
-        margin-bottom: 8px !important; /* 距离下面的按钮 8px */
-    }
-    
-    /* 按钮组容器 */
-    .icon-row {
-        /* 上下间距完全一致，不再用负值 */
-        margin-top: 0px !important;
-        margin-bottom: 0px !important;
-    }
-
-    /* 标题样式 */
-    h4 { margin: 0 !important; padding: 0 !important; font-size: 1rem !important; }
-    /* 标签样式 */
-    .card-tags { font-size: 0.8rem; color: #666; margin-top: 2px; }
-
-    /* ================================================================= */
-    /* 按钮样式 (绝对居中) */
-    /* ================================================================= */
-    
+    /* 按钮本体样式 */
     .icon-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
-        min-height: 34px !important;
+        height: 36px !important;
         padding: 0 !important;
-        margin: 0 !important;
-        
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        
-        border: 1px solid #f0f2f6 !important;
+        border: 1px solid #eee !important;
         border-radius: 6px !important;
-        background-color: white !important;
-        box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        background: white !important;
     }
     
-    /* Emoji 微调居中 */
-    .icon-btn button p {
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1 !important;
-        font-size: 1.1rem !important;
-        transform: translateY(-2px);
-    }
-    .icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
-
-    /* 底部提示词按钮 */
+    /* Emoji 修正居中 */
+    .icon-btn button p { margin: 0 !important; padding: 0 !important; transform: translateY(-2px); font-size: 1.1rem !important; }
+    
+    /* 提示词大按钮 */
     .wide-btn button {
         width: 100% !important;
-        min-height: 38px !important;
-        background-color: #f8f9fa !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 6px !important;
-        color: #333 !important;
+        height: 36px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         justify-content: flex-start !important;
-        padding-left: 10px !important;
+        padding-left: 8px !important;
+        background: #f8f9fa !important;
+        border: 1px solid #eee !important;
+        border-radius: 6px !important;
+        font-size: 0.85rem !important;
+    }
+
+    /* 悬停效果 */
+    button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
+
+    /* ================================================================= */
+    /* 顶部布局：查看按钮 (View) 放右上角 */
+    /* ================================================================= */
+    
+    .view-btn-container {
+        display: flex;
+        justify-content: flex-end; /* 靠右对齐 */
+        margin-bottom: -40px !important; /* 【关键】负边距，让它浮在图片上方或紧贴顶部 */
+        position: relative;
+        z-index: 99; /* 保证在图片上面 */
+        padding-right: 5px;
+        padding-top: 5px;
+    }
+    .view-btn button {
+        background: rgba(255, 255, 255, 0.8) !important; /* 半透明白底 */
+        border: 1px solid #ddd !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        border-radius: 50% !important; /* 圆形按钮 */
+        width: 32px !important;
+        height: 32px !important;
+        min-height: 32px !important;
+        padding: 0 !important;
+    }
+
+    /* ================================================================= */
+    /* 通用去间隙 */
+    /* ================================================================= */
+    
+    /* 卡片内部容器去间隙 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] {
+        gap: 0 !important;
     }
     
-    /* 菜单按钮 */
-    .menu-btn button { aspect-ratio: 1 / 1 !important; min-height: 38px !important; border-radius: 6px !important; }
-
-    /* 分割线 */
-    hr {
-        margin-top: 8px !important;    /* 距离上面的按钮 8px */
-        margin-bottom: 8px !important; /* 距离下面的提示词 8px */
-        border-top: 1px solid #f0f2f6 !important;
-    }
-
-    /* 其他杂项 */
+    /* 隐藏杂项 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
-    img { max-height: 600px; object-fit: contain; margin-bottom: 8px !important; }
+    img { max-height: 500px; object-fit: contain; width: 100%; display: block; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,7 +172,7 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider(); st.caption("提示词:"); st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏 (完整代码) ---
+# --- 5. 侧边栏 ---
 with st.sidebar:
     st.header("📤 新增资产")
     new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
@@ -216,55 +212,67 @@ with st.container(border=True):
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
         
-        # 1. 图片
+        # 1. 右上角全屏查看按钮 (悬浮/顶部布局)
+        # 利用 CSS .view-btn-container 实现靠右布局
+        st.markdown(f"""
+        <div class="view-btn-container">
+            <div class="view-btn">
+                </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 这是一个技巧：把按钮放到上面那个div的位置附近
+        # 我们用 columns 布局来放置这个按钮，但通过CSS让它浮起来
+        r1, r2 = st.columns([10, 1])
+        with r2:
+             if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="全屏"): view_dialog(item)
+
+        # 2. 图片 (紧接着按钮下方)
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 标题 + 标签 (HTML块，下方留8px)
+        # 3. 信息 (HTML)
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
-        
         st.markdown(f"""
-        <div class="info-box">
-            <h4 style="margin:0; font-size:1rem; color:#31333F;">{item.get('title', '未命名')}</h4>
-            <div class="card-tags">{tags}</div>
+        <div style="margin-top: 5px; line-height: 1.2;">
+            <div style="font-weight: 600; font-size: 1rem; color: #333;">{item.get('title', '未命名')}</div>
+            <div style="font-size: 0.8rem; color: #666;">{tags}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 中间工具栏 (View, Pin, Fav)
-        # 加上 icon-row 类
-        st.markdown('<div class="icon-row">', unsafe_allow_html=True)
-        # 注意：这里 [1,1,1,3] 的比例在手机上会因为 CSS flex-wrap: nowrap 而强制不换行
-        b1, b2, b3, space = st.columns([1, 1, 1, 3], gap="small")
+        # 4. 底部操作栏 (HTML Flex 布局容器)
+        # 这一行包含：置顶、收藏、提示词、菜单
+        st.markdown('<div class="bottom-bar">', unsafe_allow_html=True)
+        
+        # 我们需要用 4 个 st.columns 来分别把按钮塞进这个 Flex 容器
+        # 但是 Streamlit 的 columns 本身带有 padding，所以我们用一个巧妙的方法：
+        # 定义一个 layout，然后通过 CSS 类名 .btn-wrap 来控制宽度
+        
+        b1, b2, b3, b4 = st.columns([1, 1, 6, 1], gap="small")
+        
         with b1:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
-            if st.button("👁️", key=f"v_{item['id']}_{key_suffix}", help="查看"): view_dialog(item)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with b2:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
+            st.markdown('<div class="btn-wrap-small icon-btn">', unsafe_allow_html=True)
             p = "📌" if item['is_pinned'] else "📍"
             if st.button(p, key=f"p_{item['id']}_{key_suffix}", help="置顶"): 
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        with b3:
-            st.markdown('<div class="icon-btn">', unsafe_allow_html=True)
+            
+        with b2:
+            st.markdown('<div class="btn-wrap-small icon-btn">', unsafe_allow_html=True)
             f = "❤️" if item['is_favorite'] else "🤍"
             if st.button(f, key=f"f_{item['id']}_{key_suffix}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute(); st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. 底部按钮 (上方分割线留8px)
-        st.markdown('<hr>', unsafe_allow_html=True)
-        
-        w1, w2 = st.columns([4, 1], gap="small")
-        with w1:
-            st.markdown('<div class="wide-btn">', unsafe_allow_html=True)
+        with b3:
+            st.markdown('<div class="btn-wrap-wide wide-btn">', unsafe_allow_html=True)
             with st.popover("📄 查看提示词", use_container_width=True): st.code(item['prompt'], language=None)
             st.markdown('</div>', unsafe_allow_html=True)
-        with w2:
-            st.markdown('<div class="menu-btn">', unsafe_allow_html=True)
+
+        with b4:
+            st.markdown('<div class="btn-wrap-small icon-btn">', unsafe_allow_html=True)
             with st.popover("⋮", use_container_width=True):
                 if st.button("✏️ 编辑", key=f"e_{item['id']}_{key_suffix}"): edit_dialog(item)
                 if st.button("🗑️ 删除", key=f"d_{item['id']}_{key_suffix}", type="primary"):
@@ -274,6 +282,8 @@ def render_card(item, is_text_only=False, key_suffix="main"):
                         except: pass
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True) # end bottom-bar
 
 # --- 列表 ---
 raw = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True).execute().data

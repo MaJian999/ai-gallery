@@ -5,7 +5,7 @@ import time
 # --- 1. 页面配置 ---
 st.set_page_config(page_title="AI Asset Library", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 终极居中与布局 ---
+# --- CSS 像素级调优 ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
@@ -13,75 +13,75 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 核心修复：按钮内 Emoji 绝对死死居中 */
+    /* 问题3修复：缩小卡片边框内部的留白 (Padding) */
     /* ================================================================= */
-    
-    /* 重置所有按钮内文本容器的默认样式 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        padding: 10px !important; /* 原来是 1rem (16px)，现在改紧凑 */
+    }
+
+    /* ================================================================= */
+    /* 问题1修复：弹窗图片高度限制放宽 */
+    /* ================================================================= */
+    img {
+        max-height: 85vh !important; /* 允许图片占屏幕高度的 85% */
+        object-fit: contain;
+        width: 100%;
+        display: block;
+    }
+
+    /* ================================================================= */
+    /* 核心修复：按钮内 Emoji 居中 */
+    /* ================================================================= */
     .stButton button p {
         margin: 0 !important;
         padding: 0 !important;
-        line-height: 1 !important; /* 关键：消除行高影响 */
+        line-height: 1 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
     }
 
     /* ================================================================= */
-    /* 组件样式 */
+    /* 问题2修复：全屏按钮与下方按钮的间隙 */
     /* ================================================================= */
-
-    /* 1. 全宽“全屏查看”按钮 */
+    
+    /* 全宽“全屏查看”按钮 */
     .full-view-btn button {
-        margin-top: 8px !important;
-        margin-bottom: 8px !important;
-        min-height: 38px !important;
+        margin-top: 5px !important;    /* 离上面文字近一点 */
+        margin-bottom: 4px !important; /* 【核心】离下面图标只有 4px */
+        min-height: 32px !important;   /* 稍微做薄一点，显得精致 */
         border-radius: 6px !important;
         font-weight: 500 !important;
         background-color: #f0f2f6 !important;
         border: 1px solid #e0e0e0 !important;
         color: #31333F !important;
+        font-size: 0.9rem !important;
     }
     .full-view-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
     
-    /* 2. 底部四个正方形图标按钮 (Pin, Fav, Prompt, Menu) */
+    /* 底部四个正方形图标按钮 */
     .square-icon-btn button {
-        aspect-ratio: 1 / 1 !important; /* 强制正方形 */
+        aspect-ratio: 1 / 1 !important;
         width: 100% !important;
-        min-height: 38px !important; /* 统一高度 */
-        padding: 0 !important;       /* 核心：去除内边距 */
-        margin: 0 !important;
-        
-        /* Flex 居中 */
+        min-height: 36px !important;
+        padding: 0 !important;
+        margin: 0 !important; /* 确保没有多余外边距 */
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        
         border: 1px solid #eee !important;
         border-radius: 6px !important;
         background: white !important;
     }
-    
-    /* 调整图标大小 */
     .square-icon-btn button p { font-size: 1.2rem !important; }
-
-    /* 悬停效果 */
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
     /* ================================================================= */
-    /* 通用去间隙与杂项 */
+    /* 通用去间隙 */
     /* ================================================================= */
-    
-    /* 卡片内部容器去间隙 */
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
-    
-    /* 隐藏 Popover 箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
-    
-    /* Tag 样式 */
     .stMultiSelect span { background-color: #e8f0fe; color: #1967d2; border-radius: 4px; font-size: 0.85rem; }
-    
-    /* 图片 */
-    img { max-height: 500px; object-fit: contain; width: 100%; display: block; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,7 +141,8 @@ def edit_dialog(item):
 
 @st.dialog("🔍 详情", width="large")
 def view_dialog(item):
-    c1, c2 = st.columns([1.8, 1])
+    # 使用大比例，让图片尽可能大
+    c1, c2 = st.columns([2, 1])
     with c1: 
         if item['image_url']: st.image(item['image_url'], use_container_width=True)
         else: st.info("无图")
@@ -151,7 +152,14 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider(); st.caption("提示词:"); st.code(item['prompt'], language=None)
 
-# --- 5. 侧边栏 (保持不变) ---
+# 修改4：新增提示词专用大弹窗
+@st.dialog("📄 提示词", width="large")
+def prompt_dialog(prompt_text):
+    st.markdown("##### 完整提示词内容")
+    st.code(prompt_text, language=None)
+    st.caption("提示：点击右上角图标即可一键复制")
+
+# --- 5. 侧边栏 ---
 with st.sidebar:
     st.header("📤 新增资产")
     new_title = st.text_input("标题 / 备注 (必填)", placeholder="例如: 赛博朋克女孩v1")
@@ -195,7 +203,7 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 信息 (HTML, 紧贴图片)
+        # 2. 信息 (HTML)
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
@@ -206,14 +214,13 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 3. 全宽“全屏查看”按钮 (无Emoji，纯文字)
+        # 3. 全屏查看按钮 (全宽，无Emoji)
         st.markdown('<div class="full-view-btn">', unsafe_allow_html=True)
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. 底部 4 个正方形图标 (Pin, Fav, Prompt, Menu)
-        # 使用标准的 columns 布局，保证不溢出，自动适应宽度
+        # 4. 底部 4 个图标 (Pin, Fav, Prompt, Menu)
         b1, b2, b3, b4 = st.columns(4, gap="small")
         
         with b1:
@@ -231,9 +238,10 @@ def render_card(item, is_text_only=False, key_suffix="main"):
             st.markdown('</div>', unsafe_allow_html=True)
 
         with b3:
-            # 提示词按钮：只留 Emoji
+            # 提示词按钮：改成 button 触发大弹窗
             st.markdown('<div class="square-icon-btn">', unsafe_allow_html=True)
-            with st.popover("📄", use_container_width=True): st.code(item['prompt'], language=None)
+            if st.button("📄", key=f"txt_{item['id']}_{key_suffix}", help="查看提示词"):
+                prompt_dialog(item['prompt'])
             st.markdown('</div>', unsafe_allow_html=True)
 
         with b4:

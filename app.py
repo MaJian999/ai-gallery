@@ -3,9 +3,9 @@ from supabase import create_client
 import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="AI 资产库 Ultimate v6", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI 资产库 Ultimate v7", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 终极修复 (精准打击) ---
+# --- CSS 终极适配 (解决挤压问题) ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
@@ -13,29 +13,25 @@ st.markdown("""
     .stTextInput input { text-align: center; }
     
     /* ------------------------------------------------------- */
-    /* 关键修复：只针对卡片内部的按钮 (stVerticalBlockBorderWrapper) */
-    /* 这样就不会影响密码框的小眼睛了 */
+    /* 核心修复：卡片底部的 3 个主要按钮 (正方形) */
     /* ------------------------------------------------------- */
-    
-    /* 通用按钮样式 (置顶、收藏、编辑、删除、复制) */
-    div[data-testid="stVerticalBlockBorderWrapper"] button {
+    div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stHorizontalBlock"] > div > div > div > button {
         aspect-ratio: 1 / 1 !important;  /* 强制正方形 */
-        width: 100% !important;          /* 填满所在的小列 */
-        min-height: 0px !important;      /* 重置默认高度 */
-        height: auto !important;         /* 高度随宽度自动调整 */
+        width: 100% !important;
+        min-height: 0px !important;
+        height: auto !important;
         padding: 0px !important;
-        font-size: 1.2rem !important;    /* 图标大小 */
+        font-size: 1.1rem !important;    
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         border: 1px solid #f0f2f6 !important;
         border-radius: 8px !important;
-        line-height: 1 !important;
         margin: 0 auto !important;
     }
 
-    /* 鼠标悬停效果 */
-    div[data-testid="stVerticalBlockBorderWrapper"] button:hover {
+    /* 悬停效果 */
+    div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stHorizontalBlock"] > div > div > div > button:hover {
         border-color: #ff4b4b !important;
         background-color: #fff1f1 !important;
         color: #ff4b4b !important;
@@ -44,17 +40,21 @@ st.markdown("""
     }
 
     /* ------------------------------------------------------- */
-    /* 隐藏 Popover (删除/复制) 旁边的小三角箭头 */
+    /* 关键：修复 Popover 内部的按钮 (让它们变回长条形，不要正方形) */
     /* ------------------------------------------------------- */
-    div[data-testid="stPopover"] > button > svg {
-        display: none !important;
+    div[data-testid="stPopoverBody"] button {
+        aspect-ratio: auto !important;   /* 取消正方形限制 */
+        width: 100% !important;
+        height: auto !important;
+        padding: 0.5rem 1rem !important; /* 增加内边距 */
+        justify-content: flex-start !important; /* 文字左对齐 */
+        border: 1px solid #eee !important;
+        margin-bottom: 5px !important;
     }
-    
-    /* 修复 Popover 按钮内部布局，确保 emoji 居中 */
-    div[data-testid="stPopover"] > button > div {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
+
+    /* 隐藏 Popover 触发按钮的小三角 */
+    div[data-testid="stPopover"] > button > svg { display: none !important; }
+    div[data-testid="stPopover"] > button > div { margin: 0 !important; padding: 0 !important; }
 
     /* 多选框 Tag 样式 */
     .stMultiSelect span {
@@ -208,14 +208,13 @@ with st.sidebar:
 
 st.title("🌌 我的 AI 资产库")
 
-# 筛选栏
 with st.container(border=True):
     f_col1, f_col2, f_col3 = st.columns([2, 2, 1])
     with f_col1: filter_cats = st.multiselect("📂 筛选分类", all_cats, placeholder="全部分类")
     with f_col2: filter_styles = st.multiselect("🎨 筛选风格", all_styles, placeholder="全部风格")
     with f_col3: layout_cols = st.slider("列数", 2, 6, 4)
 
-# --- 核心卡片渲染 ---
+# --- 核心卡片渲染 (布局优化版) ---
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
         # 1. 图片
@@ -237,8 +236,9 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if len(tags_display) > 40: st.caption(tags_display[:40] + "...")
         else: st.caption(tags_display)
 
-        # 4. 底部操作栏 (5个正方形按钮)
-        c1, c2, c3, c4, c5 = st.columns(5)
+        # 4. 底部操作栏 (改为3列，节省空间)
+        # 布局：[ 置顶 ] [ 收藏 ] [ 更多... ]
+        c1, c2, c3 = st.columns(3)
         
         with c1:
             pin_icon = "📌" if item['is_pinned'] else "📍"
@@ -253,15 +253,17 @@ def render_card(item, is_text_only=False, key_suffix="main"):
                 st.rerun()
 
         with c3:
-            # 复制 (去掉小箭头，只剩图标)
-            with st.popover("📄", use_container_width=True):
-                 st.code(item['prompt'], language=None)
-
-        with c4:
-            # 删除 (去掉小箭头，只剩图标)
-            with st.popover("🗑️", use_container_width=True):
-                st.write("确认删除？")
-                if st.button("Yes", key=f"del_{item['id']}_{key_suffix}", type="primary"):
+            # “更多”菜单 (⋮)
+            # 这里面包含了：复制、编辑、删除
+            with st.popover("⋮", use_container_width=True):
+                st.caption("操作菜单")
+                
+                # 编辑按钮 (触发 Dialog)
+                if st.button("✏️ 编辑信息", key=f"edit_{item['id']}_{key_suffix}"):
+                    edit_dialog(item, all_cats, all_styles)
+                
+                # 删除按钮 (红色高亮)
+                if st.button("🗑️ 删除资产", key=f"del_{item['id']}_{key_suffix}", type="primary"):
                     supabase.table("gallery").delete().eq("id", item['id']).execute()
                     if item['image_url']:
                         try:
@@ -269,11 +271,10 @@ def render_card(item, is_text_only=False, key_suffix="main"):
                             supabase.storage.from_("images").remove([fname])
                         except: pass
                     st.rerun()
-
-        with c5:
-            # 编辑 (Dialog)
-            if st.button("✏️", key=f"edit_{item['id']}_{key_suffix}"):
-                edit_dialog(item, all_cats, all_styles)
+                
+                st.markdown("---")
+                st.caption("提示词")
+                st.code(item['prompt'], language=None)
 
 # --- 数据筛选 ---
 raw_data = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True).execute().data

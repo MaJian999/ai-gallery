@@ -3,20 +3,18 @@ from supabase import create_client
 import time
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="AI 资产库 Ultimate v7", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI 资产库 Ultimate v8", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 终极适配 (解决挤压问题) ---
+# --- CSS 终极适配 ---
 st.markdown("""
 <style>
     /* 1. 登录框居中 */
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
     
-    /* ------------------------------------------------------- */
-    /* 核心修复：卡片底部的 3 个主要按钮 (正方形) */
-    /* ------------------------------------------------------- */
+    /* 2. 核心按钮样式 (正方形、大图标) */
     div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stHorizontalBlock"] > div > div > div > button {
-        aspect-ratio: 1 / 1 !important;  /* 强制正方形 */
+        aspect-ratio: 1 / 1 !important;
         width: 100% !important;
         min-height: 0px !important;
         height: auto !important;
@@ -28,6 +26,7 @@ st.markdown("""
         border: 1px solid #f0f2f6 !important;
         border-radius: 8px !important;
         margin: 0 auto !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
 
     /* 悬停效果 */
@@ -39,24 +38,22 @@ st.markdown("""
         transition: all 0.2s;
     }
 
-    /* ------------------------------------------------------- */
-    /* 关键：修复 Popover 内部的按钮 (让它们变回长条形，不要正方形) */
-    /* ------------------------------------------------------- */
+    /* 3. 菜单内按钮 (长条形) */
     div[data-testid="stPopoverBody"] button {
-        aspect-ratio: auto !important;   /* 取消正方形限制 */
+        aspect-ratio: auto !important;
         width: 100% !important;
         height: auto !important;
-        padding: 0.5rem 1rem !important; /* 增加内边距 */
-        justify-content: flex-start !important; /* 文字左对齐 */
+        padding: 0.5rem 1rem !important;
+        justify-content: flex-start !important;
         border: 1px solid #eee !important;
         margin-bottom: 5px !important;
     }
-
-    /* 隐藏 Popover 触发按钮的小三角 */
+    
+    /* 4. 隐藏 Popover 默认箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     div[data-testid="stPopover"] > button > div { margin: 0 !important; padding: 0 !important; }
 
-    /* 多选框 Tag 样式 */
+    /* 5. 多选框 Tag 样式 */
     .stMultiSelect span {
         background-color: #e8f0fe;
         color: #1967d2;
@@ -112,7 +109,9 @@ except:
     all_cats = []
     all_styles = []
 
-# --- 4. 编辑模态窗 (Dialog) ---
+# --- 4. 功能弹窗 (Dialogs) ---
+
+# A. 编辑信息弹窗
 @st.dialog("✏️ 编辑作品信息")
 def edit_dialog(item, all_cats, all_styles):
     new_title = st.text_input("标题", value=item['title'])
@@ -123,7 +122,6 @@ def edit_dialog(item, all_cats, all_styles):
         cat_index = all_cats.index(current_cat) if current_cat in all_cats else 0
         edit_cat_sel = st.selectbox("分类 (已有)", all_cats, index=cat_index)
         edit_cat_new = st.text_input("或：新建分类")
-    
     with col_d2:
         current_style_str = item.get('style', '')
         current_style_list = [s.strip() for s in current_style_str.split(',')] if current_style_str else []
@@ -135,7 +133,6 @@ def edit_dialog(item, all_cats, all_styles):
     
     if st.button("💾 保存修改", type="primary", use_container_width=True):
         final_cat = edit_cat_new.strip() if edit_cat_new.strip() else edit_cat_sel
-        
         final_styles = edit_style_sel.copy()
         if edit_style_new:
             final_styles.extend([t.strip() for t in edit_style_new.replace('，', ',').split(',') if t.strip()])
@@ -150,6 +147,35 @@ def edit_dialog(item, all_cats, all_styles):
         st.success("修改已保存！")
         time.sleep(0.5)
         st.rerun()
+
+# B. 全屏详情弹窗 (Lightbox)
+@st.dialog("🔍 作品详情", width="large")
+def view_dialog(item):
+    # 左右布局：左图右文
+    col_img, col_info = st.columns([1.5, 1])
+    
+    with col_img:
+        if item['image_url']:
+            st.image(item['image_url'], use_container_width=True)
+        else:
+            st.info("纯文本资产，无图片")
+            
+    with col_info:
+        st.subheader(item['title'])
+        st.caption(f"📂 **{item['category']}**")
+        
+        # 风格标签
+        if item['style']:
+            tags = item['style'].split(',')
+            st.markdown(" ".join([f"`{t.strip()}`" for t in tags]))
+        
+        st.divider()
+        st.markdown("**提示词**")
+        # st.code 自带复制按钮，完美满足需求
+        st.code(item['prompt'], language=None)
+        
+        st.caption("提示：点击代码块右上角的图标即可复制")
+
 
 # --- 5. 侧边栏：录入系统 ---
 with st.sidebar:
@@ -189,13 +215,9 @@ with st.sidebar:
                     img_url = f"{st.secrets['SUPABASE_URL']}/storage/v1/object/public/images/{file_name}"
 
                 data = {
-                    "title": new_title,
-                    "category": final_category,
-                    "style": final_style_str,
-                    "prompt": prompt_text,
-                    "image_url": img_url,
-                    "is_pinned": False,
-                    "is_favorite": False
+                    "title": new_title, "category": final_category, "style": final_style_str,
+                    "prompt": prompt_text, "image_url": img_url,
+                    "is_pinned": False, "is_favorite": False
                 }
                 supabase.table("gallery").insert(data).execute()
                 st.success("✅ 保存成功！")
@@ -205,7 +227,6 @@ with st.sidebar:
             st.error("⚠️ 标题不能为空")
 
 # --- 6. 主界面 ---
-
 st.title("🌌 我的 AI 资产库")
 
 with st.container(border=True):
@@ -214,56 +235,64 @@ with st.container(border=True):
     with f_col2: filter_styles = st.multiselect("🎨 筛选风格", all_styles, placeholder="全部风格")
     with f_col3: layout_cols = st.slider("列数", 2, 6, 4)
 
-# --- 核心卡片渲染 (布局优化版) ---
+# --- 核心卡片渲染 ---
 def render_card(item, is_text_only=False, key_suffix="main"):
     with st.container(border=True):
-        # 1. 图片
+        # 1. 图片区
         if not is_text_only and item['image_url']:
             st.image(item['image_url'], use_container_width=True)
         elif is_text_only:
             st.info(item['prompt'][:100] + "..." if item['prompt'] else "(无内容)")
         
-        # 2. 标题
+        # 2. 标题区
         st.markdown(f"#### {item.get('title', '未命名')}")
         
-        # 3. 标签
+        # 3. 标签区
         current_style_str = item.get('style', '')
         current_style_list = [s.strip() for s in current_style_str.split(',')] if current_style_str else []
         tags_display = f"📂 {item['category']}"
         if current_style_list:
             tags_display += f" | 🎨 {', '.join(current_style_list)}"
-        
         if len(tags_display) > 40: st.caption(tags_display[:40] + "...")
         else: st.caption(tags_display)
 
-        # 4. 底部操作栏 (改为3列，节省空间)
-        # 布局：[ 置顶 ] [ 收藏 ] [ 更多... ]
-        c1, c2, c3 = st.columns(3)
+        # 4. 底部操作栏 (5列布局)
+        # [查看] [置顶] [收藏] [复制] [更多]
+        c1, c2, c3, c4, c5 = st.columns(5)
         
         with c1:
+            # 👁️ 全屏详情 (Lightbox)
+            if st.button("👁️", key=f"view_{item['id']}_{key_suffix}", help="全屏详情"):
+                view_dialog(item)
+        
+        with c2:
             pin_icon = "📌" if item['is_pinned'] else "📍"
             if st.button(pin_icon, key=f"pin_{item['id']}_{key_suffix}", help="置顶"):
                 supabase.table("gallery").update({"is_pinned": not item['is_pinned']}).eq("id", item['id']).execute()
                 st.rerun()
         
-        with c2:
+        with c3:
             fav_icon = "❤️" if item['is_favorite'] else "🤍"
             if st.button(fav_icon, key=f"fav_{item['id']}_{key_suffix}", help="收藏"):
                 supabase.table("gallery").update({"is_favorite": not item['is_favorite']}).eq("id", item['id']).execute()
                 st.rerun()
 
-        with c3:
-            # “更多”菜单 (⋮)
-            # 这里面包含了：复制、编辑、删除
+        with c4:
+            # 📄 复制 (Popover 形式，因为 st.code 需要容器)
+            # 点击后直接展示代码，方便复制
+            with st.popover("📄", use_container_width=True, help="复制提示词"):
+                 st.code(item['prompt'], language=None)
+
+        with c5:
+            # ⋮ 更多菜单 (收纳低频操作)
             with st.popover("⋮", use_container_width=True):
-                st.caption("操作菜单")
-                
-                # 编辑按钮 (触发 Dialog)
-                if st.button("✏️ 编辑信息", key=f"edit_{item['id']}_{key_suffix}"):
+                st.caption("管理")
+                # 编辑 -> 触发编辑弹窗
+                if st.button("✏️ 编辑", key=f"edit_{item['id']}_{key_suffix}"):
                     edit_dialog(item, all_cats, all_styles)
                 
-                # 删除按钮 (红色高亮)
-                if st.button("🗑️ 删除资产", key=f"del_{item['id']}_{key_suffix}", type="primary"):
+                # 删除 -> 红色按钮
+                if st.button("🗑️ 删除", key=f"del_{item['id']}_{key_suffix}", type="primary"):
                     supabase.table("gallery").delete().eq("id", item['id']).execute()
                     if item['image_url']:
                         try:
@@ -271,10 +300,6 @@ def render_card(item, is_text_only=False, key_suffix="main"):
                             supabase.storage.from_("images").remove([fname])
                         except: pass
                     st.rerun()
-                
-                st.markdown("---")
-                st.caption("提示词")
-                st.code(item['prompt'], language=None)
 
 # --- 数据筛选 ---
 raw_data = supabase.table("gallery").select("*").order("is_pinned", desc=True).order("id", desc=True).execute().data

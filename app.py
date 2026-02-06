@@ -13,10 +13,15 @@ st.markdown("""
     .stTextInput input { text-align: center; }
 
     /* ================================================================= */
-    /* 核心修复：按钮样式与间距 */
+    /* 核心修复：极限压缩全屏按钮与下方图标的间隙 */
     /* ================================================================= */
     
-    /* 全宽“全屏查看”按钮 - 样式微调 */
+    /* 1. 卡片内边距 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        padding: 10px !important;
+    }
+
+    /* 2. 全宽“全屏查看”按钮 */
     div[data-testid="stButton"] button {
         width: 100%;
         border-radius: 6px !important;
@@ -25,12 +30,12 @@ st.markdown("""
         border: 1px solid #e0e0e0 !important;
         color: #333 !important;
         min-height: 32px !important;
-        margin-top: 0px !important; /* 自身不带边距，完全靠垫片控制 */
-        margin-bottom: 0px !important;
+        height: 32px !important;
+        margin: 0px !important; /* 自身无边距 */
     }
     div[data-testid="stButton"] button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; }
     
-    /* 底部四个正方形图标 */
+    /* 3. 底部四个正方形图标 - 强制去除顶部所有间隙 */
     .square-icon-btn button {
         aspect-ratio: 1 / 1 !important;
         width: 100% !important;
@@ -48,26 +53,24 @@ st.markdown("""
         font-size: 1.2rem !important; 
         margin: 0 !important; 
         padding: 0 !important;
-        transform: translateY(-2px); /* Emoji 视觉居中 */
+        transform: translateY(-2px); 
     }
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
     /* ================================================================= */
-    /* 杂项与去间隙 */
+    /* 弹窗与布局优化 */
     /* ================================================================= */
-    
-    /* 卡片内边距 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 10px !important; }
-    
-    /* 消除 Streamlit 默认组件间隙 */
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
     
     /* 弹窗图片限制 */
     img { max-height: 70vh !important; object-fit: contain; width: 100%; display: block; }
     
+    /* 消除垂直块之间的间隙 */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0 !important; }
+    
     /* 隐藏 Popover 箭头 */
     div[data-testid="stPopover"] > button > svg { display: none !important; }
-    /* 修复 Popover 触发按钮样式 */
+    
+    /* 修复 Popover 触发按钮 */
     div[data-testid="stPopover"] > button {
          aspect-ratio: 1 / 1 !important;
          width: 100% !important;
@@ -198,7 +201,7 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         if not is_text_only and item['image_url']: st.image(item['image_url'], use_container_width=True)
         elif is_text_only: st.info(item['prompt'][:80] + "..." if item['prompt'] else "无内容")
 
-        # 2. 信息 (HTML)
+        # 2. 信息
         tags = f"📂 {item['category']}"
         if item.get('style'): tags += f" | {item['style']}"
         if len(tags) > 40: tags = tags[:40] + "..."
@@ -209,19 +212,19 @@ def render_card(item, is_text_only=False, key_suffix="main"):
         </div>
         """, unsafe_allow_html=True)
 
-        # 【核心技巧】 上方物理垫片 (控制按钮和上面文字的距离)
-        # 增加 10px 的高度，让按钮不要贴着字
-        st.markdown('<div style="height: 10px;"></div>', unsafe_allow_html=True)
+        # 【技巧1】上方垫片：12px (隔开文字和按钮)
+        st.markdown('<div style="height: 12px;"></div>', unsafe_allow_html=True)
 
         # 3. 全屏查看按钮
         if st.button("全屏查看", key=f"v_{item['id']}_{key_suffix}", use_container_width=True):
              view_dialog(item)
 
-        # 【核心技巧】 下方物理垫片 (控制按钮和下面图标的距离)
-        # 使用 -20px 的负边距，强行吃掉 Streamlit 默认的 padding，把下面的图标拉上来
-        st.markdown('<div style="margin-top: -20px;"></div>', unsafe_allow_html=True)
+        # 【技巧2】下方垫片：核弹级 -35px
+        # Streamlit 的 Columns 默认有巨大的顶部 Margin/Padding，
+        # 普通的 -10px, -20px 根本拉不动，这里直接设 -35px
+        st.markdown('<div style="margin-top: -35px;"></div>', unsafe_allow_html=True)
 
-        # 4. 底部 4 个图标 (Pin, Fav, Prompt, Menu)
+        # 4. 底部 4 个图标
         b1, b2, b3, b4 = st.columns(4, gap="small")
         
         with b1:

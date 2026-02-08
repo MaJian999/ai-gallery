@@ -12,55 +12,36 @@ st.markdown("""
     .login-container { display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column; }
     .stTextInput input { text-align: center; }
     div[data-testid="stVerticalBlockBorderWrapper"] > div { padding: 12px !important; }
-    div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0px !important; }
-
-    /* ==================================================================== */
-    /* NEW: 终极修复 - 弹窗与滚动条 */
-    /* ==================================================================== */
     
-    /* 1. 弹窗容器：高度90%，宽度60% */
+    /* 2. 弹窗 (Dialog) 样式优化 */
     div[data-testid="stDialog"] div[role="dialog"] {
-        width: 60vw !important;
+        width: 60vw !important;        /* 宽度 60% */
         min-width: 600px !important;
-        height: 90vh !important;
+        height: 90vh !important;       /* 高度 90% */
         max-height: 90vh !important;
         display: flex;
         flex-direction: column;
     }
     
-    /* 2. 弹窗内容主体：允许整体滚动 */
+    /* 让弹窗内容区自动撑开 */
     div[data-testid="stDialog"] div[role="dialog"] > div[data-testid="stVerticalBlock"] {
         height: 100%;
         overflow-y: auto;
     }
 
-    /* 3. 【核心修复】强制限制 st.code (灰色提示词框) 的高度 */
-    /* 我们同时定位多个层级，确保覆盖 Streamlit 的默认样式 */
+    /* 3. 优化 st.code 代码块的显示 */
+    /* 强制去除代码块多余的外边距，让它在容器里更好看 */
+    .stCodeBlock {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
     
-    .stCodeBlock, 
-    div[data-testid="stCodeBlock"] {
-        width: 100% !important;
-    }
-
-    /* 关键：定位到内部的 pre 标签，这是实际承载文本的地方 */
-    div[data-testid="stCodeBlock"] pre {
-        max-height: 500px !important;  /* 强制最大高度 500px */
-        overflow-y: auto !important;   /* 内容超长时，框内出现纵向滚动条 */
-        white-space: pre-wrap !important; /* 强制自动换行 */
-        border: 1px solid #eee !important; /* 加个边框让范围更清晰 */
-        background-color: #f9f9f9 !important; /* 确保背景色存在 */
-    }
-
-    /* 针对部分旧版本 Streamlit 的兼容写法 */
+    /* 强制长文本换行 */
     code {
         white-space: pre-wrap !important;
     }
 
-    /* ==================================================================== */
-    /* END NEW CSS */
-    /* ==================================================================== */
-
-    /* 3. 按钮样式 */
+    /* 按钮样式 */
     .full-view-btn button {
         width: 100%;
         margin-top: 8px !important; margin-bottom: 4px !important;
@@ -80,7 +61,6 @@ st.markdown("""
     .square-icon-btn button p { font-size: 1.2rem !important; margin: 0 !important; transform: translateY(-2px); }
     .square-icon-btn button:hover { border-color: #ff4b4b !important; color: #ff4b4b !important; background-color: #fff5f5 !important; }
 
-    /* 杂项 */
     img { max-height: 70vh !important; object-fit: contain; width: 100%; display: block; }
     div[data-testid="stPopover"] > button > svg { display: none !important; }
     div[data-testid="stPopover"] > button {
@@ -159,14 +139,21 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider()
         st.markdown("**提示词 (右上角复制)**")
-        # st.code 会被上方的 CSS div[data-testid="stCodeBlock"] pre 捕获并限制高度
-        st.code(item['prompt'], language="text")
+        
+        # 【关键修改】：使用 st.container(height=...) 强制限制高度
+        # 这里设置为 500px，如果提示词超过这个高度，容器内部会出现滚动条
+        with st.container(height=500, border=True):
+            st.code(item['prompt'], language="text")
 
 # 提示词弹窗
 @st.dialog("📄 提示词内容") 
 def prompt_dialog(prompt_text):
     st.caption("点击下方文本框右上角的 📄 图标即可一键复制。")
-    st.code(prompt_text, language="text")
+    
+    # 【关键修改】：同样应用 height 限制
+    # 这里给高一点，比如 600px
+    with st.container(height=600, border=True):
+        st.code(prompt_text, language="text")
 
 # --- 5. 侧边栏 ---
 with st.sidebar:

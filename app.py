@@ -15,34 +15,39 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0px !important; }
 
     /* ==================================================================== */
-    /* NEW: 针对弹窗 (Dialog) 的样式优化 */
+    /* NEW: 弹窗与滚动条样式的核心优化 */
     /* ==================================================================== */
     
-    /* 【核心修改点】：
-       高度保持 90vh (90%屏幕高度)
-       宽度改为 60vw (60%屏幕宽度)，之前是 95vw 太宽了
-    */
+    /* 1. 弹窗大小控制 (保持高度90vh，宽度60vw) */
     div[data-testid="stDialog"] div[role="dialog"] {
-        width: 60vw !important;        /* <--- 这里改成了 60vw，稍微窄一点 */
-        max-width: 1200px !important;  /* 增加最大宽度限制，防止在大屏上过于夸张 */
-        min-width: 600px !important;   /* 增加最小宽度，防止在小屏上太窄 */
-        height: 90vh !important;       /* 高度保持不变 */
+        width: 60vw !important;        
+        max-width: 1200px !important;
+        min-width: 600px !important;
+        height: 90vh !important;       
         max-height: 90vh !important;
         display: flex;
         flex-direction: column;
     }
     
-    /* 让弹窗内容区自动撑开并允许滚动 */
+    /* 2. 弹窗内容区自动撑开 */
     div[data-testid="stDialog"] div[role="dialog"] > div[data-testid="stVerticalBlock"] {
         height: 100%;
         overflow-y: auto;
     }
 
-    /* 优化 st.code 代码块样式 */
+    /* 3. 【核心修复】代码块(提示词框) 限制高度并添加内部滚动条 */
     .stCodeBlock {
         width: 100% !important;
     }
-    /* 强制长文本换行 */
+    
+    /* 针对 st.code 的容器进行高度限制 */
+    div[data-testid="stCodeBlock"] {
+        max-height: 60vh !important;  /* 限制最大高度为屏幕高度的60% (或者写固定值如 500px) */
+        overflow-y: auto !important;  /* 内容超出时，框内出现纵向滚动条 */
+        border-radius: 8px !important;
+    }
+
+    /* 4. 强制长文本自动换行 */
     code {
         white-space: pre-wrap !important;
     }
@@ -150,6 +155,7 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider()
         st.markdown("**提示词 (右上角复制)**")
+        # 这里会自动应用 CSS 中的 max-height: 60vh 和 overflow-y: auto
         st.code(item['prompt'], language="text")
 
 # 提示词弹窗

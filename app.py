@@ -15,39 +15,43 @@ st.markdown("""
     div[data-testid="stVerticalBlockBorderWrapper"] > div > div[data-testid="stVerticalBlock"] { gap: 0px !important; }
 
     /* ==================================================================== */
-    /* NEW: 弹窗与滚动条样式的核心优化 */
+    /* NEW: 终极修复 - 弹窗与滚动条 */
     /* ==================================================================== */
     
-    /* 1. 弹窗大小控制 (保持高度90vh，宽度60vw) */
+    /* 1. 弹窗容器：高度90%，宽度60% */
     div[data-testid="stDialog"] div[role="dialog"] {
-        width: 60vw !important;        
-        max-width: 1200px !important;
+        width: 60vw !important;
         min-width: 600px !important;
-        height: 90vh !important;       
+        height: 90vh !important;
         max-height: 90vh !important;
         display: flex;
         flex-direction: column;
     }
     
-    /* 2. 弹窗内容区自动撑开 */
+    /* 2. 弹窗内容主体：允许整体滚动 */
     div[data-testid="stDialog"] div[role="dialog"] > div[data-testid="stVerticalBlock"] {
         height: 100%;
         overflow-y: auto;
     }
 
-    /* 3. 【核心修复】代码块(提示词框) 限制高度并添加内部滚动条 */
-    .stCodeBlock {
+    /* 3. 【核心修复】强制限制 st.code (灰色提示词框) 的高度 */
+    /* 我们同时定位多个层级，确保覆盖 Streamlit 的默认样式 */
+    
+    .stCodeBlock, 
+    div[data-testid="stCodeBlock"] {
         width: 100% !important;
     }
-    
-    /* 针对 st.code 的容器进行高度限制 */
-    div[data-testid="stCodeBlock"] {
-        max-height: 60vh !important;  /* 限制最大高度为屏幕高度的60% (或者写固定值如 500px) */
-        overflow-y: auto !important;  /* 内容超出时，框内出现纵向滚动条 */
-        border-radius: 8px !important;
+
+    /* 关键：定位到内部的 pre 标签，这是实际承载文本的地方 */
+    div[data-testid="stCodeBlock"] pre {
+        max-height: 500px !important;  /* 强制最大高度 500px */
+        overflow-y: auto !important;   /* 内容超长时，框内出现纵向滚动条 */
+        white-space: pre-wrap !important; /* 强制自动换行 */
+        border: 1px solid #eee !important; /* 加个边框让范围更清晰 */
+        background-color: #f9f9f9 !important; /* 确保背景色存在 */
     }
 
-    /* 4. 强制长文本自动换行 */
+    /* 针对部分旧版本 Streamlit 的兼容写法 */
     code {
         white-space: pre-wrap !important;
     }
@@ -155,7 +159,7 @@ def view_dialog(item):
         if item['style']: st.markdown(" ".join([f"`{t.strip()}`" for t in item['style'].split(',')]))
         st.divider()
         st.markdown("**提示词 (右上角复制)**")
-        # 这里会自动应用 CSS 中的 max-height: 60vh 和 overflow-y: auto
+        # st.code 会被上方的 CSS div[data-testid="stCodeBlock"] pre 捕获并限制高度
         st.code(item['prompt'], language="text")
 
 # 提示词弹窗
